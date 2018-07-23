@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<package>
+  <metadata>
+    <id>Our.Umbraco.Migration</id>
+    <version>1.0.0</version>
+    <title>Our.Umbraco.Migration</title>
+    <authors>ProWorks</authors>
+    <owners>proworks_bc</owners>
+	<licenseUrl>https://opensource.org/licenses/MIT</licenseUrl>
+    <projectUrl>https://bitbucket.org/proworks/our.umbraco.migration</projectUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>Automates product migrations using the Umbraco migration system.  Migrations can be added to the code base and they will be automatically applied the next time Umbraco is started.</description>
+    <releaseNotes>Added the automated product migrations</releaseNotes>
+    <copyright>Copyright 2018</copyright>
+    <tags>umbraco migration</tags>
+    <dependencies>
+      <dependency id="UmbracoCms.Core" version="7.3.0" />
+    </dependencies>
+  </metadata>
+  <files>
+    <file src="bin\Release\Our.Umbraco.Migration.dll" target="lib\net45\Our.Umbraco.Migration.dll" />
+	<file src="license.txt" target="content\license.txt" />
+	<file src="web.config.transform" target="content\web.config.transform" />
+  </files>
+</package>

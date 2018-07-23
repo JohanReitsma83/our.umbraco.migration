@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.27703.2035
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Our.Umbraco.Migration", "Our.Umbraco.Migration\Our.Umbraco.Migration.csproj", "{2FD34252-7521-4084-BDBB-6C6A3A928A3E}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{2FD34252-7521-4084-BDBB-6C6A3A928A3E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2FD34252-7521-4084-BDBB-6C6A3A928A3E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2FD34252-7521-4084-BDBB-6C6A3A928A3E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2FD34252-7521-4084-BDBB-6C6A3A928A3E}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {09FFAF21-7E3E-4EC9-B4CC-47BFC82180A2}
+	EndGlobalSection
+EndGlobal
