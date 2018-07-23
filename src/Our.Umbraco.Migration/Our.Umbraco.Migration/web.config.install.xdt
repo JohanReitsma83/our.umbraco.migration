@@ -1,0 +1,11 @@
+﻿<?xml version="1.0"?>
+<configuration xmlns:xdt="http://schemas.microsoft.com/XML-Document-Transform">
+  <configSections>
+    <section name="migrationResolvers" type="Our.Umbraco.Migration.MigrationResolverSection, Our.Umbraco.Migration" xdt:Locator="Match(name)" xdt:Transform="InsertIfMissing" />
+  </configSections>
+  <migrationResolvers xdt:Transform="InsertIfMissing">
+	<add name="ProductMigrations" type="Our.Umbraco.Migration.ProductMigrationResolver, Our.Umbraco.Migration">
+      <add key="MonitoredProductNames" value="" />
+	</add>
+  </migrationResolvers>
+</configuration>

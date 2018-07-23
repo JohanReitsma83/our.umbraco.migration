@@ -2,7 +2,7 @@
 <package>
   <metadata>
     <id>Our.Umbraco.Migration</id>
-    <version>1.0.0</version>
+    <version>1.0.1</version>
     <title>Our.Umbraco.Migration</title>
     <authors>ProWorks</authors>
     <owners>proworks_bc</owners>
@@ -19,7 +19,7 @@
   </metadata>
   <files>
     <file src="bin\Release\Our.Umbraco.Migration.dll" target="lib\net45\Our.Umbraco.Migration.dll" />
-	<file src="license.txt" target="content\license.txt" />
-	<file src="web.config.transform" target="content\web.config.transform" />
+	<file src="web.config.install.xdt" target="content\web.config.install.xdt" />
+	<file src="web.config.uninstall.xdt" target="content\web.config.uninstall.xdt" />
   </files>
 </package>
