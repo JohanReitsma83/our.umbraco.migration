@@ -213,12 +213,24 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="ContentBaseType.cs" />
+    <Compile Include="ContentsByTypeSource.cs" />
+    <Compile Include="ContentBaseTransformMapper.cs" />
+    <Compile Include="ContentTransformMapper.cs" />
+    <Compile Include="FieldTransformMigration.cs" />
+    <Compile Include="IContentBaseSource.cs" />
+    <Compile Include="IdToUdiMapper.cs" />
+    <Compile Include="IdToUdiMigration.cs" />
+    <Compile Include="IdToUdiTransformMapper.cs" />
+    <Compile Include="MigrationMapper.cs" />
     <Compile Include="ProductMigrationResolver.cs" />
     <Compile Include="IMigrationResolver.cs" />
     <Compile Include="MigrationRunnerDetail.cs" />
     <Compile Include="MigrationStartupHandler.cs" />
     <Compile Include="MigrationResolverConfig.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="TransformMapper.cs" />
+    <Compile Include="UdiToIdMapper.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="app.config" />

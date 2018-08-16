@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Semver;
+using Umbraco.Core.Logging;
 using Umbraco.Core.Models;
 using Umbraco.Core.Persistence.Migrations;
 
@@ -48,7 +49,7 @@ namespace Our.Umbraco.Migration
             return MigrationDetails;
         }
 
-        public void Initialize(IReadOnlyDictionary<string, string> settings)
+        public void Initialize(ILogger logger, IReadOnlyDictionary<string, string> settings)
         {
             lock (_lock)
             {
@@ -57,19 +58,27 @@ namespace Our.Umbraco.Migration
                 ProductNames.Clear();
 
                 if (settings.TryGetValue(NamesKey, out var names))
+                {
                     ProductNames.UnionWith(names.Split(',').Select(n => n.Trim())
                         .Where(n => n.Length > 0 && !string.Equals(n, "umbraco", StringComparison.InvariantCultureIgnoreCase)));
+                    var pn = string.Join(", ", ProductNames);
+                    logger.Info<ProductMigrationResolver>($"Looking for migrations in products: {pn}");
+                }
+                else
+                {
+                    logger.Warn<ProductMigrationResolver>("No product names defined in the web.config file");
+                }
             }
         }
 
-        public IEnumerable<string> GetProductNames()
+        public IEnumerable<string> GetProductNames(ILogger logger)
         {
             var details = GetMigrationDetails();
 
             return details.Select(d => d.ProductName).Distinct();
         }
 
-        public IEnumerable<MigrationRunnerDetail> GetMigrationRunners(IReadOnlyDictionary<string, IEnumerable<IMigrationEntry>> appliedMigrations)
+        public IEnumerable<MigrationRunnerDetail> GetMigrationRunners(ILogger logger, IReadOnlyDictionary<string, IEnumerable<IMigrationEntry>> appliedMigrations)
         {
             var details = GetMigrationDetails();
             var lk = details.ToLookup(d => d.ProductName);
@@ -80,7 +89,15 @@ namespace Our.Umbraco.Migration
                 var applied = appliedMigrations != null && appliedMigrations.TryGetValue(productRunners.Key, out var appl) ? appl : null;
                 var current = applied?.OrderByDescending(a => a.Version).Select(a => a.Version).FirstOrDefault() ?? new SemVersion(0);
 
-                if (current < target) yield return new MigrationRunnerDetail(productRunners.Key, current, target);
+                if (current < target)
+                {
+                    logger.Info<ProductMigrationResolver>($"{productRunners.Key} has migrations from {current} to {target}");
+                    yield return new MigrationRunnerDetail(productRunners.Key, current, target);
+                }
+                else
+                {
+                    logger.Info<ProductMigrationResolver>($"{productRunners.Key} is up to date");
+                }
             }
         }
 

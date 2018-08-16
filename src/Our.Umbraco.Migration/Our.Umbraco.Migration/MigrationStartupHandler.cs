@@ -5,7 +5,8 @@ using System.Linq;
 using Umbraco.Core;
 using Umbraco.Core.Logging;
 using Umbraco.Core.Models;
-using Umbraco.Web;
+using Umbraco.Core.Persistence;
+using Umbraco.Core.Services;
 
 /* Copyright 2018 ProWorks, Inc.
  *
@@ -21,27 +22,37 @@ namespace Our.Umbraco.Migration
     {
         protected override void ApplicationStarted(UmbracoApplicationBase umbracoApplication, ApplicationContext applicationContext)
         {
-            ApplyNeededMigrations();
+            ApplyNeededMigrations(applicationContext);
         }
 
-        private static void ApplyNeededMigrations()
+        private static void ApplyNeededMigrations(ApplicationContext applicationContext)
         {
-            var resolvers = GetRegisteredResolvers();
+            var logger = applicationContext.ProfilingLogger.Logger;
+            var resolvers = GetRegisteredResolvers(logger);
             if (resolvers == null || !resolvers.Any()) return;
 
             var runners = new List<MigrationRunnerDetail>();
             foreach (var resolver in resolvers)
             {
-                var applied = DetermineAppliedMigrations(resolver);
+                var applied = DetermineAppliedMigrations(resolver, logger);
                 if (applied.Count == 0) continue;
 
-                AddMigrationRunners(resolver, applied, runners);
+                AddMigrationRunners(resolver, applied, runners, logger);
             }
 
-            if (runners.Count > 0) ExecuteMigrationRunners(runners);
+            if (runners.Count <= 0) return;
+
+            var ctx = new MigrationContext
+            {
+                MigrationEntryService = applicationContext.Services.MigrationEntryService,
+                Logger = logger,
+                Database = applicationContext.DatabaseContext.Database
+            };
+
+            ExecuteMigrationRunners(runners, ctx);
         }
 
-        private static List<IMigrationResolver> GetRegisteredResolvers()
+        private static List<IMigrationResolver> GetRegisteredResolvers(ILogger logger)
         {
             var resolvers = new List<IMigrationResolver>();
             MigrationResolverSection section = null;
@@ -66,7 +77,7 @@ namespace Our.Umbraco.Migration
                         LogHelper.Warn<MigrationStartupHandler>($"The type '{resolver.Type}' for migration resolver '{resolver.Name}' could not be found");
                     else if (!interfaceType.IsAssignableFrom(type) || !(Activator.CreateInstance(type) is IMigrationResolver instance))
                         LogHelper.Warn<MigrationStartupHandler>($"The type '{type.FullName}' for migration resolver '{resolver.Name}' does not implement IMigrationResolver");
-                    else AddResolver(resolvers, resolver, instance);
+                    else AddResolver(resolvers, resolver, instance, logger);
                 }
                 catch (Exception e)
                 {
@@ -77,7 +88,7 @@ namespace Our.Umbraco.Migration
             return resolvers;
         }
 
-        private static void AddResolver(ICollection<IMigrationResolver> resolvers, ResolverElement resolver, IMigrationResolver instance)
+        private static void AddResolver(ICollection<IMigrationResolver> resolvers, ResolverElement resolver, IMigrationResolver instance, ILogger logger)
         {
             try
             {
@@ -87,7 +98,7 @@ namespace Our.Umbraco.Migration
                     settings[setting.Key] = setting.Value;
                 }
 
-                instance.Initialize(settings);
+                instance.Initialize(logger, settings);
                 resolvers.Add(instance);
             }
             catch (Exception e)
@@ -96,14 +107,14 @@ namespace Our.Umbraco.Migration
             }
         }
 
-        private static Dictionary<string, IEnumerable<IMigrationEntry>> DetermineAppliedMigrations(IMigrationResolver resolver)
+        private static Dictionary<string, IEnumerable<IMigrationEntry>> DetermineAppliedMigrations(IMigrationResolver resolver, ILogger logger)
         {
             var applied = new Dictionary<string, IEnumerable<IMigrationEntry>>();
             IEnumerable<string> names = null;
 
             try
             {
-                names = resolver.GetProductNames();
+                names = resolver.GetProductNames(logger);
             }
             catch (Exception e)
             {
@@ -126,11 +137,11 @@ namespace Our.Umbraco.Migration
             return applied;
         }
 
-        private static void AddMigrationRunners(IMigrationResolver resolver, IReadOnlyDictionary<string, IEnumerable<IMigrationEntry>> applied, List<MigrationRunnerDetail> runners)
+        private static void AddMigrationRunners(IMigrationResolver resolver, IReadOnlyDictionary<string, IEnumerable<IMigrationEntry>> applied, List<MigrationRunnerDetail> runners, ILogger logger)
         {
             try
             {
-                var rnrs = resolver.GetMigrationRunners(applied);
+                var rnrs = resolver.GetMigrationRunners(logger, applied);
                 runners.AddRange(rnrs);
             }
             catch (Exception e)
@@ -139,30 +150,46 @@ namespace Our.Umbraco.Migration
             }
         }
 
-        private static void ExecuteMigrationRunners(IEnumerable<MigrationRunnerDetail> runners)
+        private static void ExecuteMigrationRunners(IEnumerable<MigrationRunnerDetail> runners, MigrationContext context)
         {
-            var es = ApplicationContext.Current.Services.MigrationEntryService;
-            var logger = ApplicationContext.Current.ProfilingLogger.Logger;
-            var db = UmbracoContext.Current.Application.DatabaseContext.Database;
             foreach (var detail in runners)
             {
                 try
                 {
-                    var runner = detail?.CreateRunner(es, logger);
+                    var runner = detail?.CreateRunner(context.MigrationEntryService, context.Logger);
                     if (runner == null)
                     {
                         LogHelper.Warn<MigrationStartupHandler>($"No runner was returned for {detail?.ProductName} between version {detail?.CurrentVersion} and {detail?.TargetVersion}");
                     }
                     else
                     {
-                        runner.Execute(db);
+                        LogHelper.Info<MigrationStartupHandler>($"Executing migration for {detail.ProductName} from {detail.CurrentVersion} to {detail.TargetVersion}");
+                        var opened = false;
+                        try
+                        {
+                            context.Database.OpenSharedConnection();
+                            opened = true;
+                            runner.Execute(context.Database);
+                            LogHelper.Info<MigrationStartupHandler>($"Completed migration of {detail.ProductName} from {detail.CurrentVersion} to {detail.TargetVersion}");
+                        }
+                        finally
+                        {
+                            if (opened) context.Database.CloseSharedConnection();
+                        }
                     }
                 }
                 catch (Exception e)
                 {
-                    LogHelper.Error<MigrationStartupHandler>($"Could not execute the runner for {detail?.ProductName} between version {detail?.CurrentVersion} and {detail?.TargetVersion}", e);
+                    LogHelper.Error<MigrationStartupHandler>($"Could not execute the migration of {detail?.ProductName} from {detail?.CurrentVersion} to {detail?.TargetVersion}", e);
                 }
             }
+        }
+
+        private class MigrationContext
+        {
+            public IMigrationEntryService MigrationEntryService { get; set; }
+            public ILogger Logger { get; set; }
+            public UmbracoDatabase Database { get; set; }
         }
     }
 }

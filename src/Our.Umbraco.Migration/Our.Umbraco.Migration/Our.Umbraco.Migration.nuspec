@@ -2,15 +2,15 @@
 <package>
   <metadata>
     <id>Our.Umbraco.Migration</id>
-    <version>1.0.1</version>
+    <version>1.0.5</version>
     <title>Our.Umbraco.Migration</title>
     <authors>ProWorks</authors>
     <owners>proworks_bc</owners>
-	<licenseUrl>https://opensource.org/licenses/MIT</licenseUrl>
+    <licenseUrl>https://opensource.org/licenses/MIT</licenseUrl>
     <projectUrl>https://bitbucket.org/proworks/our.umbraco.migration</projectUrl>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <description>Automates product migrations using the Umbraco migration system.  Migrations can be added to the code base and they will be automatically applied the next time Umbraco is started.</description>
-    <releaseNotes>Added the automated product migrations</releaseNotes>
+    <releaseNotes>Included child content types in the IdToUdiMigration</releaseNotes>
     <copyright>Copyright 2018</copyright>
     <tags>umbraco migration</tags>
     <dependencies>
@@ -18,7 +18,8 @@
     </dependencies>
   </metadata>
   <files>
-    <file src="bin\Release\Our.Umbraco.Migration.dll" target="lib\net45\Our.Umbraco.Migration.dll" />
+    <file src="bin\Debug\Our.Umbraco.Migration.dll" target="lib\net45\Our.Umbraco.Migration.dll" />
+    <file src="bin\Debug\Our.Umbraco.Migration.pdb" target="lib\net45\Our.Umbraco.Migration.pdb" />
 	<file src="web.config.install.xdt" target="content\web.config.install.xdt" />
 	<file src="web.config.uninstall.xdt" target="content\web.config.uninstall.xdt" />
   </files>
