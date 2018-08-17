@@ -39,7 +39,11 @@ namespace Our.Umbraco.Migration
                     .Where(c => c != null && c.Length > 0)
                     .SelectMany(c => c
                         .Where(a => a.ProductName != null && ProductNames.Contains(a.ProductName))
-                        .Select(a => new MigrationDetail { ProductName = a.ProductName, TargetVersion = new SemVersion(a.TargetVersion)}));
+                        .Select(a => new MigrationDetail
+                        {
+                            ProductName = a.ProductName,
+                            TargetVersion = new SemVersion(a.TargetVersion.Major, a.TargetVersion.Minor, a.TargetVersion.Build)
+                        }));
 
                 MigrationDetails.AddRange(migrations);
 
