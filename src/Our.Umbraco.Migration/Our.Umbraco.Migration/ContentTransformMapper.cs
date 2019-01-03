@@ -1,4 +1,5 @@
-﻿using Umbraco.Core.Models;
+﻿using System;
+using Umbraco.Core.Models;
 using Umbraco.Core.Services;
 
 namespace Our.Umbraco.Migration
@@ -12,8 +13,21 @@ namespace Our.Umbraco.Migration
 
         public override void SaveChanges(ServiceContext ctx, IContentBase content, object preChangeState)
         {
-            if (preChangeState is bool b && b) ctx.ContentService.SaveAndPublishWithStatus(content as IContent);
-            else ctx.ContentService.Save(content as IContent);
+            switch (Source.SourceType)
+            {
+                case ContentBaseType.Document:
+                    if (preChangeState is bool b && b) ctx.ContentService.SaveAndPublishWithStatus(content as IContent);
+                    else ctx.ContentService.Save(content as IContent);
+                    break;
+                case ContentBaseType.Media:
+                    ctx.MediaService.Save(content as IMedia);
+                    break;
+                case ContentBaseType.Member:
+                    ctx.MemberService.Save(content as IMember);
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
         }
     }
 }

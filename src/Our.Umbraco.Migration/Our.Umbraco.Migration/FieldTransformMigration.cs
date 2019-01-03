@@ -17,6 +17,7 @@ namespace Our.Umbraco.Migration
     public abstract class FieldTransformMigration : MigrationBase
     {
         private readonly List<ContentBaseTransformMapper> _mappings;
+        private bool _hasMappings;
 
         /// <summary>
         /// Creates a new FieldTransformMigration instance
@@ -27,16 +28,48 @@ namespace Our.Umbraco.Migration
         protected FieldTransformMigration(IEnumerable<ContentBaseTransformMapper> mappings, ISqlSyntaxProvider sqlSyntax, ILogger logger) : base(sqlSyntax, logger)
         {
             _mappings = new List<ContentBaseTransformMapper>(mappings);
+            _hasMappings = true;
+        }
+
+        /// <summary>
+        /// Creates a new FieldTransformMigration instance, delaying the loading of mappings until later with a LoadMappings overload
+        /// </summary>
+        /// <param name="sqlSyntax"></param>
+        /// <param name="logger"></param>
+        protected FieldTransformMigration(ISqlSyntaxProvider sqlSyntax, ILogger logger) : base(sqlSyntax, logger)
+        {
+            _mappings = new List<ContentBaseTransformMapper>();
         }
 
         public override void Up()
         {
+            EnsureMappings();
             Transform(true);
         }
 
         public override void Down()
         {
+            EnsureMappings();
             Transform(false);
+        }
+
+        private void EnsureMappings()
+        {
+            if (_hasMappings) return;
+
+            var mappings = LoadMappings();
+            if (mappings != null) _mappings.AddRange(mappings);
+            _hasMappings = true;
+        }
+
+        /// <summary>
+        /// When overridden by a derived class, provides the transform mappings to process at the time of migration, rather than loading them in the constructor.
+        /// This is what should be used if the list is dynamic.  If the list is a static list, it should be passed to the constructor instead.
+        /// </summary>
+        /// <returns>The list of mappings to process</returns>
+        protected virtual IEnumerable<ContentBaseTransformMapper> LoadMappings()
+        {
+            throw new NotImplementedException("You must override the LoadMappings method if you do not pass in mappings to the constructor");
         }
 
         /// <summary>

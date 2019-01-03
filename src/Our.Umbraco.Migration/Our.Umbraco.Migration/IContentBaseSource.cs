@@ -12,7 +12,7 @@ namespace Our.Umbraco.Migration
     public interface IContentBaseSource
     {
         string SourceName { get; }
-        string SourceType { get; }
+        ContentBaseType SourceType { get; }
         IEnumerable<IContentBase> GetContents(ILogger logger, ServiceContext ctx);
     }
 }

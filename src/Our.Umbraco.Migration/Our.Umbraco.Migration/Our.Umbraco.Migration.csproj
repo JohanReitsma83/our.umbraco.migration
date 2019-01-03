@@ -217,8 +217,15 @@
     <Compile Include="ContentsByTypeSource.cs" />
     <Compile Include="ContentBaseTransformMapper.cs" />
     <Compile Include="ContentTransformMapper.cs" />
+    <Compile Include="DataTypeMigratorFactory.cs" />
+    <Compile Include="DataTypeMigrators\ContentPickerMigrator.cs" />
+    <Compile Include="DataTypeMigrators\MediaPickerMigrator.cs" />
+    <Compile Include="DataTypeMigrators\MemberPickerMigrator.cs" />
+    <Compile Include="DataTypeMigrators\MultiNodeTreePickerMigrator.cs" />
+    <Compile Include="DataTypeMigrators\MultipleMediaPickerMigrator.cs" />
     <Compile Include="FieldTransformMigration.cs" />
     <Compile Include="IContentBaseSource.cs" />
+    <Compile Include="IDataTypeMigrator.cs" />
     <Compile Include="IdToUdiMapper.cs" />
     <Compile Include="IdToUdiMigration.cs" />
     <Compile Include="IdToUdiTransformMapper.cs" />

@@ -15,9 +15,13 @@ namespace Our.Umbraco.Migration
         private readonly Dictionary<ContentBaseType, Dictionary<int, string>> _knownIds = new Dictionary<ContentBaseType, Dictionary<int, string>>();
         private readonly Dictionary<string, string> _knownUdis = new Dictionary<string, string>();
 
-        public IdToUdiTransformMapper(string contentTypeAlias, IDictionary<string, ContentBaseType> fields)
+        public IdToUdiTransformMapper(string contentTypeAlias, IDictionary<string, ContentBaseType> fields) : this(ContentBaseType.Document, contentTypeAlias, fields)
         {
-            _source = new ContentsByTypeSource(contentTypeAlias);
+        }
+
+        public IdToUdiTransformMapper(ContentBaseType type, string alias, IDictionary<string, ContentBaseType> fields)
+        {
+            _source = new ContentsByTypeSource(type, alias);
             var map = new Dictionary<string, MigrationMapper>(fields.Count);
             foreach (var pair in fields)
             {
