@@ -2,15 +2,15 @@
 <package>
   <metadata>
     <id>Our.Umbraco.Migration</id>
-    <version>1.0.7</version>
+    <version>1.0.8</version>
     <title>Our.Umbraco.Migration</title>
     <authors>ProWorks</authors>
     <owners>proworks_bc</owners>
-    <licenseUrl>https://opensource.org/licenses/MIT</licenseUrl>
+    <license type="expression">MIT</license>
     <projectUrl>https://bitbucket.org/proworks/our.umbraco.migration</projectUrl>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <description>Automates product migrations using the Umbraco migration system.  Migrations can be added to the code base and they will be automatically applied the next time Umbraco is started.</description>
-    <releaseNotes>Added IdToUdiMigration overload that updates ALL data types and content needing updates</releaseNotes>
+    <releaseNotes>Updated composition calculations to ensure retrieval of all relevant content types</releaseNotes>
     <copyright>Copyright 2019</copyright>
     <tags>umbraco migration</tags>
     <dependencies>
