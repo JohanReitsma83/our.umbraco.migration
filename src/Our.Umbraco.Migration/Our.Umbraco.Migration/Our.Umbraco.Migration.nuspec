@@ -2,19 +2,19 @@
 <package>
   <metadata>
     <id>Our.Umbraco.Migration</id>
-    <version>1.0.8</version>
+    <version>1.0.9</version>
     <title>Our.Umbraco.Migration</title>
     <authors>ProWorks</authors>
-    <owners>proworks_bc</owners>
+    <owners>proworks_bc,pw_bowserm</owners>
     <license type="expression">MIT</license>
     <projectUrl>https://bitbucket.org/proworks/our.umbraco.migration</projectUrl>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <description>Automates product migrations using the Umbraco migration system.  Migrations can be added to the code base and they will be automatically applied the next time Umbraco is started.</description>
-    <releaseNotes>Updated composition calculations to ensure retrieval of all relevant content types</releaseNotes>
+    <releaseNotes>Added PropertiesToComposition migration base class</releaseNotes>
     <copyright>Copyright 2019</copyright>
     <tags>umbraco migration</tags>
     <dependencies>
-      <dependency id="UmbracoCms.Core" version="7.3.0" />
+      <dependency id="UmbracoCms.Core" version="7.4.0" />
     </dependencies>
   </metadata>
   <files>
