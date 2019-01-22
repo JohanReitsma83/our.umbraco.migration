@@ -2,7 +2,7 @@
 <package>
   <metadata>
     <id>Our.Umbraco.Migration</id>
-    <version>1.0.9</version>
+    <version>1.0.10</version>
     <title>Our.Umbraco.Migration</title>
     <authors>ProWorks</authors>
     <owners>proworks_bc,pw_bowserm</owners>
@@ -10,7 +10,7 @@
     <projectUrl>https://bitbucket.org/proworks/our.umbraco.migration</projectUrl>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <description>Automates product migrations using the Umbraco migration system.  Migrations can be added to the code base and they will be automatically applied the next time Umbraco is started.</description>
-    <releaseNotes>Added PropertiesToComposition migration base class</releaseNotes>
+    <releaseNotes>Fixed PropertiesToComposition migration to support compositions with special characters in the human readable name.</releaseNotes>
     <copyright>Copyright 2019</copyright>
     <tags>umbraco migration</tags>
     <dependencies>
