@@ -21,6 +21,7 @@ This project is licensed under the [MIT license](https://opensource.org/licenses
 
 ## [See Full Documentation](https://bitbucket.org/proworks/our.umbraco.migration/src/master/Documentation)
 Docs on implementing `Our.Umbraco.Migration` base migration classes, `IMigrationResolver`, and other features.
+See the [Migration.Demo](https://bitbucket.org/proworks/migration.demo) repository for further examples.
 
 ## Getting Started
 
