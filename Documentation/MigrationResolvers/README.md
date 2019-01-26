@@ -1,7 +1,8 @@
 # Common Use Cases
 
 ## Convert Id pickers to Udi pickers
-In Umbraco 7.6.0, Umbraco introduced the [UDI](https://our.umbraco.com/documentation/reference/querying/Udi). When an Umbraco site is upgraded to 7.6.0+, new versions of these pickers are added to Umbraco that pick by UDI instead of Id:
+In Umbraco 7.6.0, Umbraco introduced the [UDI](https://our.umbraco.com/documentation/reference/querying/Udi). When an Umbraco site is upgraded to 7.6.0+, new versions of these pickers are added to Umbraco that pick by UDI instead of Id:  
+
  - Content Picker (`Umbraco.ContentPickerAlias`)
  - Media Picker (`Umbraco.MediaPicker`)
  - Member Picker (`Umbraco.MemberPicker`)
