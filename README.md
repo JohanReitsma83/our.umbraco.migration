@@ -19,15 +19,15 @@ Umbraco Migrations is available for installation through NuGet:
 
 This project is licensed under the [MIT license](https://opensource.org/licenses/MIT).
 
-## [See Full Documentation](src/master/Documentation)
+## [See Full Documentation](https://bitbucket.org/proworks/Our.Umbraco.Migration/src/master/Documentation/)
 Docs on implementing `Our.Umbraco.Migration` base migration classes, `IMigrationResolver`, and other features.
 See the [Migration.Demo](https://bitbucket.org/proworks/migration.demo) repository for further examples.
 
 ## Getting Started
 
-`Our.Umbraco.Migrations` includes two main components. The first is a migration resolver that is tasked with determining which migrations have not been applied for one or more products.  The second is a [MigrationStartupHandler](src/master/src/Our.Umbraco.Migration/Our.Umbraco.Migration/MigrationStartupHandler.cs) class that queries the migration resolvers during startup to determine unapplied migrations, and then applying them.  The startup handler uses configuration in the web.config to determine which migration resolvers to use and to configure those resolvers.
+`Our.Umbraco.Migrations` includes two main components. The first is a migration resolver that is tasked with determining which migrations have not been applied for one or more products.  The second is a [MigrationStartupHandler](https://bitbucket.org/proworks/Our.Umbraco.Migration/src/master/src/Our.Umbraco.Migration/Our.Umbraco.Migration/MigrationStartupHandler.cs) class that queries the migration resolvers during startup to determine unapplied migrations, and then applying them.  The startup handler uses configuration in the web.config to determine which migration resolvers to use and to configure those resolvers.
 
-The package includes a default migration resolver called the [ProductMigrationResolver](src/master/src/Our.Umbraco.Migration/Our.Umbraco.Migration/ProductMigrationResolver.cs).  This resolver has a single configuration setting, set in the web.config file, that specifies a comma-separated list of product names to search for.  The resolver then searches the entire code base to find `IMigration` implementations that have a `MigrationAttribute` where the product name in the attribute matches one of the specified product names.
+The package includes a default migration resolver called the [ProductMigrationResolver](https://bitbucket.org/proworks/Our.Umbraco.Migration/src/master/src/Our.Umbraco.Migration/Our.Umbraco.Migration/ProductMigrationResolver.cs).  This resolver has a single configuration setting, set in the web.config file, that specifies a comma-separated list of product names to search for.  The resolver then searches the entire code base to find `IMigration` implementations that have a `MigrationAttribute` where the product name in the attribute matches one of the specified product names.
 
 The simplest usage is to modify the web.config to customize the list of product names:
 ```xml
