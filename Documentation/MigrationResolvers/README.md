@@ -1,5 +1,8 @@
 # Common Use Cases
 
+**WARNING**  
+The base migration classes used below have not been thoroughly tested. We use them on many sites we work on, and they save us a lot of time, but each Umbraco site is unique. It is entirely possible that unexpected problems may occur that result in data loss. Please test these migrations in a development environment before using them in production to prevent surprises.
+
 ## Convert Id pickers to Udi pickers
 In Umbraco 7.6.0, Umbraco introduced the [UDI](https://our.umbraco.com/documentation/reference/querying/Udi). When an Umbraco site is upgraded to 7.6.0+, new versions of these pickers are added to Umbraco that pick by UDI instead of Id:  
 
