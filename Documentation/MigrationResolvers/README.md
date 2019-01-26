@@ -10,11 +10,9 @@ In Umbraco 7.6.0, Umbraco introduced the [UDI](https://our.umbraco.com/documenta
 
 By implementing the abstract `IdToUdiMigration` base class, a migration can be created that will convert picked Id data to UDI as well as optionally converting the existing datatypes from the obsolete version to the UDI picker equivalent.
 
-There are two ways to run the `IdToUdiMigration`
+There are two ways to run the `IdToUdiMigration`. You can switch between the two modes by using the corresponding constructor.  
  1. Convert data and datatypes
  1. Convert only data
-
- For all other situations, it is recommended to use the **Convert data and datatypes** mode. You can switch between the two modes by using the corresponding constructor.
 
 ### Convert Data and DataTypes
 For most situations, it is recommended to use the **Convert data and datatypes** mode. This will cause the datatypes to swap property editors from the obsolete id picker to the new UDI picker. It will also comb through all of the data and convert the picked ids to their corresponding UDIs.

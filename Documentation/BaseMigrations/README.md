@@ -1,9 +1,9 @@
 # Migration Resolvers
-`Our.Umbraco.Migrations` includes two main components. The first is a migration resolver that is tasked with determining which migrations have not been applied for one or more products.  The second is a [MigrationStartupHandler](src/Our.Umbraco.Migration/Our.Umbraco.Migration/MigrationStartupHandler.cs) class that queries the migration resolvers during startup to determine unapplied migrations, and then applying them.  The startup handler uses configuration in the web.config to determine which migration resolvers to use and to configure those resolvers.
+`Our.Umbraco.Migrations` includes two main components. The first is a migration resolver that is tasked with determining which migrations have not been applied for one or more products.  The second is a [MigrationStartupHandler](src/master/src/Our.Umbraco.Migration/Our.Umbraco.Migration/MigrationStartupHandler.cs) class that queries the migration resolvers during startup to determine unapplied migrations, and then applying them.  The startup handler uses configuration in the web.config to determine which migration resolvers to use and to configure those resolvers.
 
 ## Default Migration Resolver
 
-`Our.Umbraco.Migration` comes with a single, default migration resolver called the [ProductMigrationResolver](src/Our.Umbraco.Migration/Our.Umbraco.Migration/ProductMigrationResolver.cs). 
+`Our.Umbraco.Migration` comes with a single, default migration resolver called the [ProductMigrationResolver](src/master/src/Our.Umbraco.Migration/Our.Umbraco.Migration/ProductMigrationResolver.cs). 
 
 The `ProductMigrationResolver` is a simple product-based migration resolver. It allows developers to configure migrations by product name to run automatically on `ApplicationStarted`. A comma-separated list of product names can be entered.
 
@@ -52,4 +52,5 @@ Umbraco stores records of completed migrations in the `umbracoMigration` table. 
 Assuming that no record was found in the `umbracoMigration` table for `MyCustomDataType` with version `1.0.1`, the default `ProductMigrationResolver` would execute the above `MyCustomDataType101` migration.
 
 ## Writing a Custom Migration Resolver
-The sole responsibility of a migration resolver is to decide which migrations should be executed. All migration resolvers must implement [IMigrationResolver](https://bitbucket.org/proworks/our.umbraco.migration/src/Our.Umbraco.Migration/Our.Umbraco.Migration/IMigrationResolver.cs)
+The sole responsibility of a migration resolver is to decide which migrations should be executed. All migration resolvers must implement [IMigrationResolver](src/master/src/Our.Umbraco.Migration/Our.Umbraco.Migration/IMigrationResolver.cs).
+
