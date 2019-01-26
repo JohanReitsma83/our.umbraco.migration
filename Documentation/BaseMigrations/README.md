@@ -94,8 +94,8 @@ namespace Example.Migrations
 ### Forcing a Full Cache Refresh
 Once the migration is finished, the Umbraco cache can end up in a strange state. Try forcing a full republish using the ContentService once the base migration is finished.
 
- ```csharp
- namespace Example.Migrations
+```csharp
+namespace Example.Migrations
 {
     [Migration("1.0.0", 1, "Example")]
     public class V1IdMigration : IdToUdiMigration
@@ -126,7 +126,7 @@ Once the migration is finished, the Umbraco cache can end up in a strange state.
         }
     }
 }
- ```
+```
 
 ---
 
