@@ -6,21 +6,21 @@ using Umbraco.Core.Services;
 
 namespace Our.Umbraco.Migration
 {
-    public class IdToUdiMapper : ITransformMapper
+    public class IdToUdiTransform : IPropertyTransform
     {
-        private ContentBaseType _type;
-        private string _typeName;
+        private static readonly Dictionary<ContentBaseType, Dictionary<int, string>> KnownIds = new Dictionary<ContentBaseType, Dictionary<int, string>>();
 
-        public ContentBaseType Type
+        private readonly Dictionary<int, string> _knownIds;
+        private readonly string _typeName;
+
+        public IdToUdiTransform(ContentBaseType type)
         {
-            get => _type;
-            set
-            {
-                _type = value;
-                _typeName = value.ToString().ToLowerInvariant();
-            }
+            Type = type;
+            _typeName = type.ToString().ToLowerInvariant();
+            _knownIds = !KnownIds.TryGetValue(type, out var val) ? KnownIds[type] = new Dictionary<int, string>() : val;
         }
-        public IDictionary<int, string> KnownIds { get; set; } = new Dictionary<int, string>();
+
+        public ContentBaseType Type { get; }
 
         public bool TryGet(IContentBase content, string field, out object value)
         {
@@ -49,7 +49,7 @@ namespace Our.Umbraco.Migration
 
         private string MapToUdi(ServiceContext ctx, int id)
         {
-            if (KnownIds.TryGetValue(id, out var udi)) return udi;
+            if (_knownIds.TryGetValue(id, out var udi)) return udi;
 
             IContentBase node = null;
             switch (Type)
@@ -68,7 +68,7 @@ namespace Our.Umbraco.Migration
             var guid = node?.Key.ToString("N");
             if (guid != null) udi = $"umb://{_typeName}/{guid}";
 
-            KnownIds[id] = udi;
+            _knownIds[id] = udi;
 
             return udi;
         }

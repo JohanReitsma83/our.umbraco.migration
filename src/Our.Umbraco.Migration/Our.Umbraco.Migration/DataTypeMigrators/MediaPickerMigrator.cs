@@ -1,18 +1,15 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Collections.Generic;
 using Umbraco.Core.Models;
 
 namespace Our.Umbraco.Migration.DataTypeMigrators
 {
     [DataTypeMigrator("Umbraco.MediaPicker")]
-    public class MediaPickerMigrator : IDataTypeMigrator
+    public class MediaPickerMigrator : IdToUdiMigrator
     {
-        public string GetNewPropertyEditorAlias(string oldPropertyEditorAlias) => "Umbraco.MediaPicker2";
+        public override string GetNewPropertyEditorAlias(IDataTypeDefinition dataType, IDictionary<string, PreValue> oldPreValues) => "Umbraco.MediaPicker2";
+        public override ContentBaseType GetNewPropertyContentBaseType(IDataTypeDefinition dataType, IDictionary<string, PreValue> oldPreValues) => ContentBaseType.Media;
 
-        public IDictionary<string, PreValue> GetNewPreValues(string oldPropertyEditorAlias, IDictionary<string, PreValue> oldPreValues)
+        public override IDictionary<string, PreValue> GetNewPreValues(IDataTypeDefinition dataType, IDictionary<string, PreValue> oldPreValues)
         {
             var preValues = new Dictionary<string, PreValue>(4);
 
@@ -23,11 +20,5 @@ namespace Our.Umbraco.Migration.DataTypeMigrators
 
             return preValues;
         }
-
-        public ContentBaseType GetContentBaseType(string oldPropertyEditorAlias, IDictionary<string, PreValue> oldPreValues) => ContentBaseType.Media;
-
-        public DataTypeDatabaseType GetNewDatabaseType(string oldPropertyEditorAlias, DataTypeDatabaseType oldDatabaseType) => DataTypeDatabaseType.Ntext;
-
-        public bool MigrateIdToUdi => true;
     }
 }

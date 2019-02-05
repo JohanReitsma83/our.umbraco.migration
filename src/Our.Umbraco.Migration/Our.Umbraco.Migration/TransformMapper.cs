@@ -6,7 +6,7 @@ namespace Our.Umbraco.Migration
     /// <summary>
     /// A transformation to convert a field from one value to another
     /// </summary>
-    public interface ITransformMapper
+    public interface IPropertyTransform
     {
         /// <summary>
         /// Gets the current value of the field

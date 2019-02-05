@@ -6,9 +6,9 @@ using Umbraco.Core.Services;
 
 namespace Our.Umbraco.Migration
 {
-    public class UdiToIdMapper : ITransformMapper
+    public class UdiToIdTransform : IPropertyTransform
     {
-        public IDictionary<string, string> KnownUdis { get; set; } = new Dictionary<string, string>();
+        private static readonly Dictionary<string, string> KnownUdis = new Dictionary<string, string>();
 
         public bool TryGet(IContentBase content, string field, out object value)
         {

@@ -1,17 +1,29 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using Umbraco.Core.Models;
 using Umbraco.Core.Services;
 
 namespace Our.Umbraco.Migration
 {
-    public class ContentTransformMapper : ContentBaseTransformMapper
+    public class ContentTransformMapper : IContentTransformMapper
     {
-        public override object RetrievePreChangeState(ServiceContext ctx, IContentBase content)
+        public ContentTransformMapper(IContentBaseSource source, IReadOnlyDictionary<string, IEnumerable<IPropertyMigration>> fieldMappers)
+        {
+            Source = source;
+            FieldMappers = fieldMappers?.ToDictionary(p => p.Key, p => (ICollection<IPropertyMigration>)p.Value?.ToList() ?? new List<IPropertyMigration>());
+        }
+
+        public IContentBaseSource Source { get; }
+
+        public IReadOnlyDictionary<string, ICollection<IPropertyMigration>> FieldMappers { get; }
+
+        public object RetrievePreChangeState(ServiceContext ctx, IContentBase content)
         {
             return (content as IContent)?.Published;
         }
 
-        public override void SaveChanges(ServiceContext ctx, IContentBase content, object preChangeState)
+        public void SaveChanges(ServiceContext ctx, IContentBase content, object preChangeState)
         {
             switch (Source.SourceType)
             {

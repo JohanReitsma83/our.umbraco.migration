@@ -16,7 +16,7 @@ namespace Our.Umbraco.Migration
     /// </summary>
     public abstract class FieldTransformMigration : MigrationBase
     {
-        private readonly List<ContentBaseTransformMapper> _mappings;
+        private readonly List<IContentTransformMapper> _mappings;
         private bool _hasMappings;
 
         /// <summary>
@@ -25,9 +25,9 @@ namespace Our.Umbraco.Migration
         /// <param name="mappings">All content base mappings that should be performed</param>
         /// <param name="sqlSyntax"></param>
         /// <param name="logger"></param>
-        protected FieldTransformMigration(IEnumerable<ContentBaseTransformMapper> mappings, ISqlSyntaxProvider sqlSyntax, ILogger logger) : base(sqlSyntax, logger)
+        protected FieldTransformMigration(IEnumerable<IContentTransformMapper> mappings, ISqlSyntaxProvider sqlSyntax, ILogger logger) : base(sqlSyntax, logger)
         {
-            _mappings = new List<ContentBaseTransformMapper>(mappings);
+            _mappings = new List<IContentTransformMapper>(mappings);
             _hasMappings = true;
         }
 
@@ -38,7 +38,7 @@ namespace Our.Umbraco.Migration
         /// <param name="logger"></param>
         protected FieldTransformMigration(ISqlSyntaxProvider sqlSyntax, ILogger logger) : base(sqlSyntax, logger)
         {
-            _mappings = new List<ContentBaseTransformMapper>();
+            _mappings = new List<IContentTransformMapper>();
         }
 
         public override void Up()
@@ -67,7 +67,7 @@ namespace Our.Umbraco.Migration
         /// This is what should be used if the list is dynamic.  If the list is a static list, it should be passed to the constructor instead.
         /// </summary>
         /// <returns>The list of mappings to process</returns>
-        protected virtual IEnumerable<ContentBaseTransformMapper> LoadMappings()
+        protected virtual IEnumerable<IContentTransformMapper> LoadMappings()
         {
             throw new NotImplementedException("You must override the LoadMappings method if you do not pass in mappings to the constructor");
         }
@@ -130,7 +130,7 @@ namespace Our.Umbraco.Migration
             }
         }
 
-        private void RemapContent(bool upgrading, ContentBaseTransformMapper mapping, ServiceContext ctx, IContentBase content, string direction, Dictionary<string, Counts> counts)
+        private void RemapContent(bool upgrading, IContentTransformMapper mapping, ServiceContext ctx, IContentBase content, string direction, Dictionary<string, Counts> counts)
         {
             var myCounts = new Dictionary<string, Counts>(mapping.FieldMappers.Count);
 
@@ -145,7 +145,7 @@ namespace Our.Umbraco.Migration
 
                     try
                     {
-                        var fieldChanged = TryMap(ctx, content, fieldMapper.Key, upgrading ? fieldMapper.Value.Upgrader : fieldMapper.Value.Downgrader);
+                        var fieldChanged = TryMap(ctx, content, fieldMapper.Key, fieldMapper.Value, upgrading);
                         changed |= fieldChanged;
 
                         if (fieldChanged)
@@ -220,17 +220,27 @@ namespace Our.Umbraco.Migration
         /// <param name="ctx">The current service context</param>
         /// <param name="content">The content node being modified</param>
         /// <param name="field">The field to change</param>
-        /// <param name="mapper">The transform mapper that determines how to change the field, and whether or not its value needs to be changed</param>
+        /// <param name="mappers">The transform mappers that determines how to change the field, and whether or not its value needs to be changed</param>
+        /// <param name="upgrading">Whether to use the Upgrader or the Downgrader</param>
         /// <returns>True if the value was present, mapped, and changed</returns>
-        protected static bool TryMap(ServiceContext ctx, IContentBase content, string field, ITransformMapper mapper)
+        protected static bool TryMap(ServiceContext ctx, IContentBase content, string field, IEnumerable<IPropertyMigration> mappers, bool upgrading)
         {
-            if (!mapper.TryGet(content, field, out var from)) return false;
+            var changed = false;
 
-            var to = mapper.Map(ctx, from);
-            if ((from == null && to == null) || (from != null && from.Equals(to)) || (to != null && to.Equals(from))) return false;
+            foreach (var mapper in mappers)
+            {
+                var transform = upgrading ? mapper.Upgrader : mapper.Downgrader;
 
-            mapper.Set(content, field, to);
-            return true;
+                if (!transform.TryGet(content, field, out var from)) continue;
+
+                var to = transform.Map(ctx, from);
+                if ((from == null && to == null) || (from != null && from.Equals(to)) || (to != null && to.Equals(from))) continue;
+
+                transform.Set(content, field, to);
+                changed = true;
+            }
+
+            return changed;
         }
     }
 }
