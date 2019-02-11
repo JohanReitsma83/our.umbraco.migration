@@ -3,9 +3,5 @@
   <configSections>
     <section name="migrationResolvers" type="Our.Umbraco.Migration.MigrationResolverSection, Our.Umbraco.Migration" xdt:Locator="Match(name)" xdt:Transform="InsertIfMissing" />
   </configSections>
-  <migrationResolvers xdt:Transform="InsertIfMissing">
-	<add name="ProductMigrations" type="Our.Umbraco.Migration.ProductMigrationResolver, Our.Umbraco.Migration">
-      <add key="MonitoredProductNames" value="" />
-	</add>
-  </migrationResolvers>
+  <migrationResolvers configSource="config\migrationResolvers.config" xdt:Transform="InsertIfMissing" />
 </configuration>

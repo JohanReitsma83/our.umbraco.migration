@@ -10,8 +10,11 @@ using Umbraco.Core.Services;
 namespace Our.Umbraco.Migration.DataTypeMigrators
 {
     [SuppressMessage("ReSharper", "UnassignedGetOnlyAutoProperty")]
-    public abstract class JsonContentMigrator : IDataTypeMigrator
+    public abstract class JsonContentMigrator<T> : IDataTypeMigrator where T : class 
     {
+        // ReSharper disable once StaticMemberInGenericType
+        private static readonly Dictionary<string, IPropertyMigration> KnownValidMigrators = new Dictionary<string, IPropertyMigration>(StringComparer.InvariantCultureIgnoreCase);
+
         public virtual bool NeedsMigration(IDataTypeDefinition dataType, IDictionary<string, PreValue> oldPreValues)
         {
             var transforms = GetJsonPropertyTransforms(dataType, oldPreValues);
@@ -25,20 +28,39 @@ namespace Our.Umbraco.Migration.DataTypeMigrators
         public virtual IPropertyMigration GetPropertyMigration(IDataTypeDefinition dataType, IDictionary<string, PreValue> oldPreValues)
         {
             var transforms = GetJsonPropertyTransforms(dataType, oldPreValues)?.ToList();
-            return transforms != null && transforms.Count > 0 ? new JsonMigration(transforms) : null;
+            return transforms != null && transforms.Count > 0 ? new JsonMigration<T>(transforms) : null;
         }
 
-        protected abstract IEnumerable<JsonPropertyTransform> GetJsonPropertyTransforms(IDataTypeDefinition dataType, IDictionary<string, PreValue> oldPreValues);
+        protected abstract IEnumerable<IJsonPropertyTransform<T>> GetJsonPropertyTransforms(IDataTypeDefinition dataType, IDictionary<string, PreValue> oldPreValues);
+
+        protected virtual IPropertyMigration GetValidPropertyMigration(string dataTypeGuid)
+        {
+            if (dataTypeGuid == null) return null;
+            if (KnownValidMigrators.TryGetValue(dataTypeGuid, out var migration)) return migration;
+
+            if (!Guid.TryParse(dataTypeGuid, out var guid)) return KnownValidMigrators[dataTypeGuid] = null;
+
+            var dts = ApplicationContext.Current.Services.DataTypeService;
+            var dt = dts.GetDataTypeDefinitionById(guid);
+            if (dt == null) return KnownValidMigrators[dataTypeGuid] = null;
+
+            var pv = dts.GetPreValuesCollectionByDataTypeId(dt.Id)?.FormatAsDictionary();
+            var migrator = DataTypeMigratorFactory.Instance.CreateDataTypeMigrator(dt.PropertyEditorAlias);
+
+            if (migrator != null && !migrator.NeedsMigration(dt, pv ?? new Dictionary<string, PreValue>())) return KnownValidMigrators[dataTypeGuid] = null;
+
+            return KnownValidMigrators[dataTypeGuid] = migrator?.GetPropertyMigration(dt, pv);
+        }
     }
 
-    public class JsonMigration : IPropertyMigration
+    public class JsonMigration<T> : IPropertyMigration where T : class
     {
-        public JsonMigration(List<JsonPropertyTransform> transforms)
+        public JsonMigration(List<IJsonPropertyTransform<T>> transforms)
         {
             var trs = transforms;
 
-            Upgrader = new JsonTransform { Transforms = trs, Upgrading = true };
-            Downgrader = new JsonTransform { Transforms = trs, Upgrading = false };
+            Upgrader = new JsonTransform<T> { Transforms = trs, Upgrading = true };
+            Downgrader = new JsonTransform<T> { Transforms = trs, Upgrading = false };
         }
 
         public IPropertyTransform Upgrader { get; }
@@ -46,10 +68,10 @@ namespace Our.Umbraco.Migration.DataTypeMigrators
         public IPropertyTransform Downgrader { get; }
     }
 
-    public class JsonTransform : IPropertyTransform
+    public class JsonTransform<T> : IPropertyTransform where T : class
     {
         public bool Upgrading { get; set; }
-        public List<JsonPropertyTransform> Transforms { get; set; }
+        public List<IJsonPropertyTransform<T>> Transforms { get; set; }
 
         public bool TryGet(IContentBase content, string field, out object value)
         {
@@ -66,17 +88,20 @@ namespace Our.Umbraco.Migration.DataTypeMigrators
             var val = from is string v ? v : from?.ToString();
             if (string.IsNullOrWhiteSpace(val)) return from;
 
-            var token = JsonConvert.DeserializeObject(val);
+            var token = JsonConvert.DeserializeObject<T>(val);
             var changed = false;
 
             Transforms.ForEach(t =>
             {
-                foreach (var valueAndSetter in t.PropertyValuesAndSetters.Invoke(token))
+                var valuesMigrationsAndSetters = t.GetPropertyValuesMigrationsAndSetters(token);
+                if (valuesMigrationsAndSetters == null) return;
+
+                foreach (var valueMigrationAndSetter in valuesMigrationsAndSetters)
                 {
-                    var propertyValue = valueAndSetter.Item1;
+                    var propertyValue = valueMigrationAndSetter.Item1;
                     if (propertyValue == null) continue;
 
-                    var tr = Upgrading ? t.Migration.Upgrader : t.Migration.Downgrader;
+                    var tr = Upgrading ? valueMigrationAndSetter.Item2.Upgrader : valueMigrationAndSetter.Item2.Downgrader;
                     var vc = new VirtualContent(propertyValue);
                     if (!tr.TryGet(vc, VirtualContent.ValuePropertyName, out var fr)) continue;
 
@@ -86,7 +111,7 @@ namespace Our.Umbraco.Migration.DataTypeMigrators
                     tr.Set(vc, VirtualContent.ValuePropertyName, to);
                     changed = true;
 
-                    valueAndSetter.Item2.Invoke(token, vc.Value?.ToString());
+                    valueMigrationAndSetter.Item3.Invoke(token, vc.Value?.ToString());
                 }
             });
 
@@ -195,9 +220,25 @@ namespace Our.Umbraco.Migration.DataTypeMigrators
         }
     }
 
-    public class JsonPropertyTransform
+    public interface IJsonPropertyTransform<T> where T : class
     {
-        public Func<object, IEnumerable<Tuple<string, Action<object, string>>>> PropertyValuesAndSetters { get; set; }
-        public IPropertyMigration Migration { get; set; }
+        IEnumerable<Tuple<string, IPropertyMigration, Action<T, string>>> GetPropertyValuesMigrationsAndSetters(T token);
+    }
+
+    public class JsonPropertyTransform<T> : IJsonPropertyTransform<T> where T : class
+    {
+        public virtual Func<T, IEnumerable<Tuple<string, Action<T, string>>>> PropertyValuesAndSetters { get; set; }
+        public virtual IPropertyMigration Migration { get; set; }
+
+        public IEnumerable<Tuple<string, IPropertyMigration, Action<T, string>>> GetPropertyValuesMigrationsAndSetters(T token)
+        {
+            var valuesAndSetters = PropertyValuesAndSetters?.Invoke(token);
+            if (valuesAndSetters == null) yield break;
+
+            foreach (var propertyValuesAndSetter in valuesAndSetters)
+            {
+                yield return new Tuple<string, IPropertyMigration, Action<T, string>>(propertyValuesAndSetter.Item1, Migration, propertyValuesAndSetter.Item2);
+            }
+        }
     }
 }

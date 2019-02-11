@@ -19,6 +19,7 @@ namespace Our.Umbraco.Migration
 
         private class DefaultDataTypeMigratorFactory : IDataTypeMigratorFactory
         {
+            private readonly Dictionary<string, IDataTypeMigrator> _knownMigrations = new Dictionary<string, IDataTypeMigrator>(StringComparer.InvariantCultureIgnoreCase);
             private readonly Dictionary<string, Func<IDataTypeMigrator>> _constructors = new Dictionary<string, Func<IDataTypeMigrator>>(StringComparer.InvariantCultureIgnoreCase);
 
             public DefaultDataTypeMigratorFactory()
@@ -63,7 +64,10 @@ namespace Our.Umbraco.Migration
 
             public IDataTypeMigrator CreateDataTypeMigrator(string propertyEditorAlias)
             {
-                return !_constructors.TryGetValue(propertyEditorAlias, out var constructor) ? null : constructor?.Invoke();
+                if (!_knownMigrations.TryGetValue(propertyEditorAlias, out var migrator))
+                    _knownMigrations[propertyEditorAlias] = migrator = !_constructors.TryGetValue(propertyEditorAlias, out var constructor) ? null : constructor?.Invoke();
+
+                return migrator;
             }
         }
     }
