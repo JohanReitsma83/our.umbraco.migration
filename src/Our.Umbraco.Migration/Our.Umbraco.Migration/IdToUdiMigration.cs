@@ -16,11 +16,11 @@ namespace Our.Umbraco.Migration
     /// </summary>
     public abstract class IdToUdiMigration : FieldTransformMigration
     {
-        private static ContentTransformMapper CreateIdToUdiMapper(ContentBaseType sourceType, string contentTypeAlias, IReadOnlyDictionary<string, ContentBaseType> fieldTypes)
+        private static ContentTransformMapper CreateIdToUdiMapper(ContentBaseType sourceType, string contentTypeAlias, IReadOnlyDictionary<string, ContentBaseType> fieldTypes, bool retainInvalidData)
         {
             return new ContentTransformMapper(
                 new ContentsByTypeSource(sourceType, contentTypeAlias),
-                fieldTypes.ToDictionary(p => p.Key, p => (IEnumerable<IPropertyMigration>) new[] {new PropertyMigration(new IdToUdiTransform(p.Value), new UdiToIdTransform())}));
+                fieldTypes.Select(p => new FieldMapper(p.Key, sourceType + " Picker", new[] { new PropertyMigration(new IdToUdiTransform(p.Value, retainInvalidData), new UdiToIdTransform()) })));
         }
         private readonly List<string> _includedDataTypes;
         private readonly List<string> _excludedDataTypes;
@@ -32,8 +32,9 @@ namespace Our.Umbraco.Migration
         /// <param name="contentTypeFieldMappings">This dictionary has as its key the content type aliases to be mapped.  Each one is then mapped to a list of fields that should be migrated from an integer to a UDI for that content type.  The field values can be single integers, or a comma-separated list of integers</param>
         /// <param name="sqlSyntax"></param>
         /// <param name="logger"></param>
-        protected IdToUdiMigration(IDictionary<string, IReadOnlyDictionary<string, ContentBaseType>> contentTypeFieldMappings, ISqlSyntaxProvider sqlSyntax, ILogger logger)
-            : base(contentTypeFieldMappings.Select(p => CreateIdToUdiMapper(ContentBaseType.Document, p.Key, p.Value)), sqlSyntax, logger)
+        /// <param name="retainInvalidData">If data is found that isn't a valid UDI or a valid ID of the right content type, should we keep that data, or remove it</param>
+        protected IdToUdiMigration(IDictionary<string, IReadOnlyDictionary<string, ContentBaseType>> contentTypeFieldMappings, ISqlSyntaxProvider sqlSyntax, ILogger logger, bool retainInvalidData = false)
+            : base(contentTypeFieldMappings.Select(p => CreateIdToUdiMapper(ContentBaseType.Document, p.Key, p.Value, retainInvalidData)), sqlSyntax, logger)
         {
         }
 
@@ -43,14 +44,18 @@ namespace Our.Umbraco.Migration
         /// </summary>
         /// <param name="sqlSyntax"></param>
         /// <param name="logger"></param>
+        /// <param name="retainInvalidData">If data is found that isn't a valid UDI or a valid ID of the right content type, should we keep that data, or remove it</param>
         /// <param name="includedDataTypes">The list of data types to include in the migration.  If specified, only these data types, and their related content, will be migrated.  By default includes all data types</param>
         /// <param name="excludedDataTypes">The list of data types to exclude from the migration.  If specified, only these data types, and their related content, will be migrated.  By default no data types are excluded</param>
-        protected IdToUdiMigration(ISqlSyntaxProvider sqlSyntax, ILogger logger, IEnumerable<string> includedDataTypes = null, IEnumerable<string> excludedDataTypes = null)
+        protected IdToUdiMigration(ISqlSyntaxProvider sqlSyntax, ILogger logger, bool retainInvalidData = false, IEnumerable<string> includedDataTypes = null, IEnumerable<string> excludedDataTypes = null)
             : base(sqlSyntax, logger)
         {
             if (includedDataTypes != null) _includedDataTypes = new List<string>(includedDataTypes);
             if (excludedDataTypes != null) _excludedDataTypes = new List<string>(excludedDataTypes);
+            RetainInvalidData = retainInvalidData;
         }
+
+        protected virtual bool RetainInvalidData { get; }
 
         /// <inheritdoc />
         /// <summary>
@@ -157,7 +162,7 @@ namespace Our.Umbraco.Migration
         {
             try
             {
-                return migrator.GetPropertyMigration(dataType.Item1, dataType.Item2);
+                return migrator.GetPropertyMigration(dataType.Item1, dataType.Item2, RetainInvalidData);
             }
             catch (Exception e)
             {
@@ -261,13 +266,13 @@ namespace Our.Umbraco.Migration
 
             foreach (var ct in cts)
             {
-                var mappings = new Dictionary<string, IEnumerable<IPropertyMigration>>();
+                var mappings = new List<IFieldMapper>();
 
                 foreach (var property in ct.PropertyTypes)
                 {
                     if (!dataTypes.TryGetValue(property.DataTypeDefinitionId, out var migrations)) continue;
 
-                    mappings[property.Alias] = new[] {migrations};
+                    mappings.Add(new FieldMapper(property.Alias, sourceType + " Picker", new[] {migrations}));
                 }
 
                 if (mappings.Count == 0) continue;
@@ -278,7 +283,7 @@ namespace Our.Umbraco.Migration
                     headerShown = true;
                 }
 
-                var fields = string.Join(", ", mappings.Keys);
+                var fields = string.Join(", ", mappings.Select(m => m.FieldName));
                 LogHelper.Info<IdToUdiMigration>($"    {ct.Name} ({ct.Alias} - #{ct.Id}), in properties {fields}");
                 yield return new ContentTransformMapper(new ContentsByTypeSource(sourceType, ct.Alias), mappings);
             }

@@ -8,15 +8,15 @@ namespace Our.Umbraco.Migration
 {
     public class ContentTransformMapper : IContentTransformMapper
     {
-        public ContentTransformMapper(IContentBaseSource source, IReadOnlyDictionary<string, IEnumerable<IPropertyMigration>> fieldMappers)
+        public ContentTransformMapper(IContentBaseSource source, IEnumerable<IFieldMapper> fieldMappers)
         {
             Source = source;
-            FieldMappers = fieldMappers?.ToDictionary(p => p.Key, p => (ICollection<IPropertyMigration>)p.Value?.ToList() ?? new List<IPropertyMigration>());
+            FieldMappers = fieldMappers?.ToList() ?? new List<IFieldMapper>();
         }
 
         public IContentBaseSource Source { get; }
 
-        public IReadOnlyDictionary<string, ICollection<IPropertyMigration>> FieldMappers { get; }
+        public ICollection<IFieldMapper> FieldMappers { get; }
 
         public object RetrievePreChangeState(ServiceContext ctx, IContentBase content)
         {
@@ -28,7 +28,13 @@ namespace Our.Umbraco.Migration
             switch (Source.SourceType)
             {
                 case ContentBaseType.Document:
-                    if (preChangeState is bool b && b) ctx.ContentService.SaveAndPublishWithStatus(content as IContent);
+                    if (preChangeState is bool b && b)
+                    {
+                        var result = ctx.ContentService.SaveAndPublishWithStatus(content as IContent);
+                        if (result.Success) return;
+                        if (result.Exception != null) throw result.Exception;
+                        throw new Exception($"Could not save the document '{content.Name}' (#{content.Id})");
+                    }
                     else ctx.ContentService.Save(content as IContent);
                     break;
                 case ContentBaseType.Media:

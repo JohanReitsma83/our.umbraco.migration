@@ -112,16 +112,16 @@ namespace Our.Umbraco.Migration
                     var sb = new StringBuilder();
                     var maxDocType = new[] { 8 }.Union(counts.Keys.Select(k => k.Length)).Max();
                     var maxField = new[] { 5 }.Union(counts.Values.SelectMany(k => k.Keys.Select(v => v.Length))).Max();
-                    var format = "{0,-" + maxDocType + "} {1,-" + maxField + "} {2,12} {3,12} {4,12} {5,12} {5,12}\r\n";
+                    var format = "{0,-" + maxDocType + "} {1,-" + maxField + "} {2,12} {3,12} {4,12} {5,12} {5,12} {6,12}\r\n";
 
                     sb.AppendLine("Transformed the following:");
-                    sb.AppendFormat(format, "Doc Type", "Field", "Success", "Unchanged", "Map Errors", "Save Errors", "Other Errors");
+                    sb.AppendFormat(format, "Doc Type", "Field", "Type", "Success", "Unchanged", "Map Errors", "Save Errors", "Other Errors");
                     sb.AppendLine();
                     foreach (var dtPair in counts)
                     {
                         foreach (var fPair in dtPair.Value)
                         {
-                            sb.AppendFormat(format, dtPair.Key, fPair.Key, fPair.Value.Success, fPair.Value.Unchanged, fPair.Value.MapError, fPair.Value.SaveError, fPair.Value.OtherError);
+                            sb.AppendFormat(format, dtPair.Key, fPair.Key, fPair.Value.Type, fPair.Value.Success, fPair.Value.Unchanged, fPair.Value.MapError, fPair.Value.SaveError, fPair.Value.OtherError);
                         }
                     }
 
@@ -141,11 +141,11 @@ namespace Our.Umbraco.Migration
 
                 foreach (var fieldMapper in mapping.FieldMappers)
                 {
-                    if (!myCounts.TryGetValue(fieldMapper.Key, out var count)) count = myCounts[fieldMapper.Key] = new Counts();
+                    if (!myCounts.TryGetValue(fieldMapper.FieldName, out var count)) count = myCounts[fieldMapper.FieldName] = new Counts {Type = fieldMapper.Type};
 
                     try
                     {
-                        var fieldChanged = TryMap(ctx, content, fieldMapper.Key, fieldMapper.Value, upgrading);
+                        var fieldChanged = TryMap(ctx, content, fieldMapper.FieldName, fieldMapper.Migrations, upgrading);
                         changed |= fieldChanged;
 
                         if (fieldChanged)
@@ -159,7 +159,7 @@ namespace Our.Umbraco.Migration
                     }
                     catch (Exception e)
                     {
-                        Logger.Error(GetType(), $"Could not {direction}grade {mapping.Source.SourceName} content #{content.Id} in field {fieldMapper.Key}", e);
+                        Logger.Error(GetType(), $"Could not {direction}grade {mapping.Source.SourceName} content #{content.Id} in field {fieldMapper.FieldName}", e);
                     }
                 }
 
@@ -207,6 +207,7 @@ namespace Our.Umbraco.Migration
 
         private class Counts
         {
+            public string Type { get; set; }
             public int Success { get; set; }
             public int OtherError { get; set; }
             public int MapError { get; set; }

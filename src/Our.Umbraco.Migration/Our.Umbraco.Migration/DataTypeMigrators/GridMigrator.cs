@@ -1,15 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Web;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Our.Umbraco.Migration.GridAliasMigrators;
 using Umbraco.Core;
 using Umbraco.Core.Models;
-using Umbraco.Core.Services;
 
 namespace Our.Umbraco.Migration.DataTypeMigrators
 {
@@ -18,7 +15,7 @@ namespace Our.Umbraco.Migration.DataTypeMigrators
     {
         private static List<string> _allAliases;
 
-        protected override IEnumerable<IJsonPropertyTransform<JObject>> GetJsonPropertyTransforms(IDataTypeDefinition dataType, IDictionary<string, PreValue> oldPreValues)
+        protected override IEnumerable<IJsonPropertyTransform<JObject>> GetJsonPropertyTransforms(IDataTypeDefinition dataType, IDictionary<string, PreValue> oldPreValues, bool retainInvalidData)
         {
             if (oldPreValues == null || !oldPreValues.TryGetValue("items", out var cfgPreVal) || string.IsNullOrWhiteSpace(cfgPreVal?.Value)) yield break;
 
@@ -26,7 +23,7 @@ namespace Our.Umbraco.Migration.DataTypeMigrators
             var layouts = config?["layouts"];
             if (layouts == null) yield break;
 
-            var allAliases = _allAliases ?? GetAllAliasesAndRegisterGenericMigrators();
+            var allAliases = _allAliases ?? GetAllAliasesAndRegisterGenericMigrators(retainInvalidData);
             if (_allAliases == null) _allAliases = allAliases;
 
             var migrators = GetMigratorMap(layouts, allAliases);
@@ -72,7 +69,7 @@ namespace Our.Umbraco.Migration.DataTypeMigrators
             return migratorMap;
         }
 
-        protected virtual List<string> GetAllAliasesAndRegisterGenericMigrators()
+        protected virtual List<string> GetAllAliasesAndRegisterGenericMigrators(bool retainInvalidData)
         {
             var aliases = new List<string>();
             var editorPath = HttpContext.Current.Server.MapPath("~/config/grid.editors.config.js");
@@ -95,7 +92,7 @@ namespace Our.Umbraco.Migration.DataTypeMigrators
                     var al = subEditor?["alias"]?.ToString();
                     if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(al)) continue;
 
-                    var migration = GetValidPropertyMigration(id);
+                    var migration = GetValidPropertyMigration(id, retainInvalidData);
                     if (migration != null) propertyMigrations[al] = migration;
                 }
 

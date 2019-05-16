@@ -17,7 +17,7 @@ namespace Our.Umbraco.Migration.DataTypeMigrators
 
         public virtual bool NeedsMigration(IDataTypeDefinition dataType, IDictionary<string, PreValue> oldPreValues)
         {
-            var transforms = GetJsonPropertyTransforms(dataType, oldPreValues);
+            var transforms = GetJsonPropertyTransforms(dataType, oldPreValues, false);
             return transforms != null && transforms.Any();
         }
 
@@ -25,15 +25,15 @@ namespace Our.Umbraco.Migration.DataTypeMigrators
         public virtual IDictionary<string, PreValue> GetNewPreValues(IDataTypeDefinition dataType, IDictionary<string, PreValue> oldPreValues) => oldPreValues;
         public virtual string GetNewPropertyEditorAlias(IDataTypeDefinition dataType, IDictionary<string, PreValue> oldPreValues) => dataType.PropertyEditorAlias;
 
-        public virtual IPropertyMigration GetPropertyMigration(IDataTypeDefinition dataType, IDictionary<string, PreValue> oldPreValues)
+        public virtual IPropertyMigration GetPropertyMigration(IDataTypeDefinition dataType, IDictionary<string, PreValue> oldPreValues, bool retainInvalidData)
         {
-            var transforms = GetJsonPropertyTransforms(dataType, oldPreValues)?.ToList();
+            var transforms = GetJsonPropertyTransforms(dataType, oldPreValues, retainInvalidData)?.ToList();
             return transforms != null && transforms.Count > 0 ? new JsonMigration<T>(transforms) : null;
         }
 
-        protected abstract IEnumerable<IJsonPropertyTransform<T>> GetJsonPropertyTransforms(IDataTypeDefinition dataType, IDictionary<string, PreValue> oldPreValues);
+        protected abstract IEnumerable<IJsonPropertyTransform<T>> GetJsonPropertyTransforms(IDataTypeDefinition dataType, IDictionary<string, PreValue> oldPreValues, bool retainInvalidData);
 
-        protected virtual IPropertyMigration GetValidPropertyMigration(string dataTypeGuid)
+        protected virtual IPropertyMigration GetValidPropertyMigration(string dataTypeGuid, bool retainInvalidData)
         {
             if (dataTypeGuid == null) return null;
             if (KnownValidMigrators.TryGetValue(dataTypeGuid, out var migration)) return migration;
@@ -49,7 +49,7 @@ namespace Our.Umbraco.Migration.DataTypeMigrators
 
             if (migrator != null && !migrator.NeedsMigration(dt, pv ?? new Dictionary<string, PreValue>())) return KnownValidMigrators[dataTypeGuid] = null;
 
-            return KnownValidMigrators[dataTypeGuid] = migrator?.GetPropertyMigration(dt, pv);
+            return KnownValidMigrators[dataTypeGuid] = migrator?.GetPropertyMigration(dt, pv, retainInvalidData);
         }
     }
 
