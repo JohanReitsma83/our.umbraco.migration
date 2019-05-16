@@ -1,11 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using Umbraco.Core;
+using Umbraco.Core.Composing;
 using Umbraco.Core.Logging;
+using Umbraco.Core.Migrations;
 using Umbraco.Core.Models;
-using Umbraco.Core.Persistence.SqlSyntax;
 using Umbraco.Core.Services;
 
 namespace Our.Umbraco.Migration
@@ -24,6 +24,7 @@ namespace Our.Umbraco.Migration
         }
         private readonly List<string> _includedDataTypes;
         private readonly List<string> _excludedDataTypes;
+        private readonly ServiceContext _svc;
 
         /// <inheritdoc />
         /// <summary>
@@ -33,9 +34,10 @@ namespace Our.Umbraco.Migration
         /// <param name="sqlSyntax"></param>
         /// <param name="logger"></param>
         /// <param name="retainInvalidData">If data is found that isn't a valid UDI or a valid ID of the right content type, should we keep that data, or remove it</param>
-        protected IdToUdiMigration(IDictionary<string, IReadOnlyDictionary<string, ContentBaseType>> contentTypeFieldMappings, ISqlSyntaxProvider sqlSyntax, ILogger logger, bool retainInvalidData = false)
-            : base(contentTypeFieldMappings.Select(p => CreateIdToUdiMapper(ContentBaseType.Document, p.Key, p.Value, retainInvalidData)), sqlSyntax, logger)
+        protected IdToUdiMigration(IDictionary<string, IReadOnlyDictionary<string, ContentBaseType>> contentTypeFieldMappings, IMigrationContext context, ServiceContext svc, bool retainInvalidData = false)
+            : base(contentTypeFieldMappings.Select(p => CreateIdToUdiMapper(ContentBaseType.Document, p.Key, p.Value, retainInvalidData)), context)
         {
+            _svc = svc;
         }
 
         /// <inheritdoc />
@@ -47,12 +49,13 @@ namespace Our.Umbraco.Migration
         /// <param name="retainInvalidData">If data is found that isn't a valid UDI or a valid ID of the right content type, should we keep that data, or remove it</param>
         /// <param name="includedDataTypes">The list of data types to include in the migration.  If specified, only these data types, and their related content, will be migrated.  By default includes all data types</param>
         /// <param name="excludedDataTypes">The list of data types to exclude from the migration.  If specified, only these data types, and their related content, will be migrated.  By default no data types are excluded</param>
-        protected IdToUdiMigration(ISqlSyntaxProvider sqlSyntax, ILogger logger, bool retainInvalidData = false, IEnumerable<string> includedDataTypes = null, IEnumerable<string> excludedDataTypes = null)
-            : base(sqlSyntax, logger)
+        protected IdToUdiMigration(IMigrationContext context, ServiceContext svc, bool retainInvalidData = false, IEnumerable<string> includedDataTypes = null, IEnumerable<string> excludedDataTypes = null)
+            : base(context)
         {
             if (includedDataTypes != null) _includedDataTypes = new List<string>(includedDataTypes);
             if (excludedDataTypes != null) _excludedDataTypes = new List<string>(excludedDataTypes);
             RetainInvalidData = retainInvalidData;
+            _svc = svc;
         }
 
         protected virtual bool RetainInvalidData { get; }
@@ -65,8 +68,7 @@ namespace Our.Umbraco.Migration
         /// <returns></returns>
         protected override IEnumerable<IContentTransformMapper> LoadMappings()
         {
-            var svc = ApplicationContext.Current.Services;
-            var dts = svc.DataTypeService;
+            var dts = _svc.DataTypeService;
 
             var migrations = FindDataTypeMigrations(dts);
             var allDataTypes = new Dictionary<int, IPropertyMigration>(migrations.Sum(m => m.Value.DataTypes.Count));
@@ -78,7 +80,7 @@ namespace Our.Umbraco.Migration
                     var propMigration = GetPropertyMigration(migration.Migrator, dataType);
                     if (propMigration == null) continue;
 
-                    allDataTypes[dataType.Item1.Id] = propMigration;
+                    allDataTypes[dataType.type.Id] = propMigration;
                 }
             }
 
@@ -89,13 +91,13 @@ namespace Our.Umbraco.Migration
                 {
                     // If we can't update the data type, we shouldn't try to migrate the content
                     if (!UpdateDataType(dts, migration.Migrator, dataType))
-                        allDataTypes.Remove(dataType.Item1.Id);
+                        allDataTypes.Remove(dataType.type.Id);
                 }
             }
 
-            var documentMappings = FindMappings(svc.ContentTypeService.GetAllContentTypes(), ContentBaseType.Document, allDataTypes) ?? new IContentTransformMapper[0];
-            var mediaMappings = FindMappings(svc.ContentTypeService.GetAllMediaTypes(), ContentBaseType.Media, allDataTypes) ?? new IContentTransformMapper[0];
-            var memberMappings = FindMappings(svc.MemberTypeService.GetAll(), ContentBaseType.Member, allDataTypes) ?? new IContentTransformMapper[0];
+            var documentMappings = FindMappings(_svc.ContentTypeService.GetAll(), ContentBaseType.Document, allDataTypes) ?? new IContentTransformMapper[0];
+            var mediaMappings = FindMappings(_svc.ContentTypeService.GetAll(), ContentBaseType.Media, allDataTypes) ?? new IContentTransformMapper[0];
+            var memberMappings = FindMappings(_svc.MemberTypeService.GetAll(), ContentBaseType.Member, allDataTypes) ?? new IContentTransformMapper[0];
 
             return documentMappings.Union(mediaMappings).Union(memberMappings);
         }
@@ -103,7 +105,7 @@ namespace Our.Umbraco.Migration
         protected virtual Dictionary<string, DataTypeMigrations> FindDataTypeMigrations(IDataTypeService dts)
         {
             var migrations = new Dictionary<string, DataTypeMigrations>(StringComparer.InvariantCultureIgnoreCase);
-            var allDataTypes = dts.GetAllDataTypeDefinitions();
+            var allDataTypes = dts.GetAll();
 
             foreach (var dataType in allDataTypes)
             {
@@ -113,151 +115,140 @@ namespace Our.Umbraco.Migration
                     (_includedDataTypes != null && !_includedDataTypes.Contains(name, StringComparer.InvariantCultureIgnoreCase)))
                     continue;
 
-                if (GetPreValues(dts, dataType, out var oldPreValues))
-                    UpdateDataTypeMigrations(new Tuple<IDataTypeDefinition, IDictionary<string, PreValue>>(dataType, oldPreValues), migrations);
+                if (GetConfiguration(dts, dataType, out var oldConfig))
+                    UpdateDataTypeMigrations((dataType, oldConfig), migrations);
             }
 
             migrations.RemoveAll(m => m.Value == null);
             return migrations;
         }
 
-        protected virtual IDataTypeMigrator CreateMigrator(Tuple<IDataTypeDefinition, IDictionary<string, PreValue>> dataType)
+        protected virtual IDataTypeMigrator CreateMigrator((IDataType type, object config) dataType)
         {
-            return DataTypeMigratorFactory.Instance.CreateDataTypeMigrator(dataType.Item1.PropertyEditorAlias);
+            return DataTypeMigratorFactory.Instance.CreateDataTypeMigrator(dataType.type.EditorAlias);
         }
 
-        protected virtual void UpdateDataTypeMigrations(Tuple<IDataTypeDefinition, IDictionary<string, PreValue>> dataType, IDictionary<string, DataTypeMigrations> knownMigrations)
+        protected virtual void UpdateDataTypeMigrations((IDataType type, object config) dataType, IDictionary<string, DataTypeMigrations> knownMigrations)
         {
-            var alias = dataType.Item1.PropertyEditorAlias;
+            var alias = dataType.type.EditorAlias;
 
             if (!knownMigrations.TryGetValue(alias, out var migration))
             {
                 var migrator = CreateMigrator(dataType);
-                migration = knownMigrations[alias] = migrator == null ? null : new DataTypeMigrations { Migrator = migrator, DataTypes = new List<Tuple<IDataTypeDefinition, IDictionary<string, PreValue>>>() };
+                migration = knownMigrations[alias] = migrator == null ? null : new DataTypeMigrations { Migrator = migrator, DataTypes = new List<(IDataType type, object config)>() };
             }
 
-            if (migration?.Migrator != null && migration.Migrator.NeedsMigration(dataType.Item1, dataType.Item2))
+            if (migration?.Migrator != null && migration.Migrator.NeedsMigration(dataType.type, dataType.config))
                 migration.DataTypes.Add(dataType);
         }
 
-        protected virtual bool GetPreValues(IDataTypeService dts, IDataTypeDefinition dataType, out IDictionary<string, PreValue> oldPreValues)
+        protected virtual bool GetConfiguration(IDataTypeService dts, IDataType dataType, out object oldConfig)
         {
-            oldPreValues = null;
+            oldConfig = null;
 
             try
             {
-                var preValueCollection = dts.GetPreValuesCollectionByDataTypeId(dataType.Id);
-                oldPreValues = preValueCollection?.FormatAsDictionary() ?? new Dictionary<string, PreValue>();
+                oldConfig = dataType.Configuration;
             }
             catch (Exception e)
             {
-                LogHelper.Error<IdToUdiMigration>($"Could not retrieve the existing pre-values for the data type {dataType.Name} ({dataType.PropertyEditorAlias})", e);
+                Logger.Error<IdToUdiMigration>($"Could not retrieve the existing pre-values for the data type {dataType.Name} ({dataType.EditorAlias})", e);
                 return false;
             }
 
             return true;
         }
 
-        protected virtual IPropertyMigration GetPropertyMigration(IDataTypeMigrator migrator, Tuple<IDataTypeDefinition, IDictionary<string, PreValue>> dataType)
+        protected virtual IPropertyMigration GetPropertyMigration(IDataTypeMigrator migrator, (IDataType type, object config) dataType)
         {
             try
             {
-                return migrator.GetPropertyMigration(dataType.Item1, dataType.Item2, RetainInvalidData);
+                return migrator.GetPropertyMigration(dataType.type, dataType.config, RetainInvalidData);
             }
             catch (Exception e)
             {
-                LogHelper.Error<IdToUdiMigration>($"Could not get the property migration for the data type {dataType.Item1.Name} ({dataType.Item1.PropertyEditorAlias})", e);
+                Logger.Error<IdToUdiMigration>($"Could not get the property migration for the data type {dataType.type.Name} ({dataType.type.EditorAlias})", e);
                 return null;
             }
         }
 
-        protected virtual bool UpdateDataType(IDataTypeService dts, IDataTypeMigrator migrator, Tuple<IDataTypeDefinition, IDictionary<string, PreValue>> dataType)
+        protected virtual bool UpdateDataType(IDataTypeService dts, IDataTypeMigrator migrator, (IDataType type, object config) dataType)
         {
-            IDictionary<string, PreValue> newPreValues;
-            DataTypeDatabaseType dbType;
+            object newConfig;
+            ValueStorageType dbType;
             string newAlias;
 
             try
             {
-                dbType = migrator.GetNewDatabaseType(dataType.Item1, dataType.Item2);
+                dbType = migrator.GetNewDatabaseType(dataType.type, dataType.config);
             }
             catch (Exception e)
             {
-                LogHelper.Error<IdToUdiMigration>($"Could not find the database type for the data type {dataType.Item1.Name} ({dataType.Item1.PropertyEditorAlias})", e);
+                Logger.Error<IdToUdiMigration>($"Could not find the database type for the data type {dataType.type.Name} ({dataType.type.EditorAlias})", e);
                 return false;
             }
 
             try
             {
-                newAlias = migrator.GetNewPropertyEditorAlias(dataType.Item1, dataType.Item2);
+                newAlias = migrator.GetNewEditorAlias(dataType.type, dataType.config);
             }
             catch (Exception e)
             {
-                LogHelper.Error<IdToUdiMigration>($"Could not find the new property editor alias for the data type {dataType.Item1.Name} ({dataType.Item1.PropertyEditorAlias})", e);
+                Logger.Error<IdToUdiMigration>($"Could not find the new property editor alias for the data type {dataType.type.Name} ({dataType.type.EditorAlias})", e);
                 return false;
             }
 
             try
             {
-                newPreValues = migrator.GetNewPreValues(dataType.Item1, dataType.Item2) ?? new Dictionary<string, PreValue>();
+                newConfig = migrator.GetNewConfiguration(dataType.type, dataType.config);
             }
             catch (Exception e)
             {
-                LogHelper.Error<IdToUdiMigration>($"Could not get the new pre-values for the data type {dataType.Item1.Name}, when migrating from {dataType.Item1.PropertyEditorAlias} to {newAlias}", e);
+                Logger.Error<IdToUdiMigration>($"Could not get the new pre-values for the data type {dataType.type.Name}, when migrating from {dataType.type.EditorAlias} to {newAlias}", e);
                 return false;
             }
 
             try
             {
-                var sb = new StringBuilder($"Updating data type {dataType.Item1.Name}, from {dataType.Item1.PropertyEditorAlias} to {newAlias} with the following pre-values");
-                var propMaps = (dataType.Item2 ?? new Dictionary<string, PreValue>()).ToDictionary(p => p.Key,
-                    p => new Tuple<string, string>(p.Value?.Value, newPreValues != null && newPreValues.TryGetValue(p.Key, out var val) ? val?.Value : null));
-                newPreValues.Where(p => dataType.Item2 == null || !dataType.Item2.ContainsKey(p.Key)).ToList().ForEach(p => propMaps[p.Key] = new Tuple<string, string>(null, p.Value?.Value));
-                propMaps.ToList().ForEach(p => AppendKeyValues(sb, p.Key, p.Value.Item1, p.Value.Item2));
-                LogHelper.Info<IdToUdiMigration>(sb.ToString());
+                Logger.Info<IdToUdiMigration>($"Updating data type {dataType.type.Name}, from {dataType.type.EditorAlias} to {newAlias}");
 
-                if (dataType.Item1.PropertyEditorAlias != newAlias || dataType.Item1.DatabaseType != dbType || !AreEquivalentPreValues(dataType.Item2, newPreValues))
+                if (dataType.type.EditorAlias != newAlias || dataType.type.DatabaseType != dbType || !AreEquivalentConfig(dataType.config, newConfig))
                 {
-                    dataType.Item1.PropertyEditorAlias = newAlias;
-                    dataType.Item1.DatabaseType = dbType;
-                    dts.SaveDataTypeAndPreValues(dataType.Item1, newPreValues);
+                    if (dataType.type.EditorAlias != newAlias && Current.PropertyEditors.TryGet(newAlias, out var editor)) dataType.type.Editor = editor;
+                    dataType.type.DatabaseType = dbType;
+                    dataType.type.Configuration = newConfig;
+                    dts.Save(dataType.type);
                 }
             }
             catch (Exception e)
             {
-                LogHelper.Error<IdToUdiMigration>($"Could not update the data type {dataType.Item1.Name} from {dataType.Item1.PropertyEditorAlias} to {newAlias}", e);
+                Logger.Error<IdToUdiMigration>($"Could not update the data type {dataType.type.Name} from {dataType.type.EditorAlias} to {newAlias}", e);
                 return false;
             }
 
             return true;
         }
 
-        protected virtual bool AreEquivalentPreValues(IDictionary<string, PreValue> oldPreValues, IDictionary<string, PreValue> newPreValues)
+        protected virtual bool AreEquivalentConfig(object oldConfig, object newConfig)
         {
-            if (ReferenceEquals(oldPreValues, newPreValues)) return true;
-            if ((oldPreValues == null || oldPreValues.Count == 0) && (newPreValues == null || newPreValues.Count == 0)) return true;
-            if (oldPreValues == null || newPreValues == null || newPreValues.Count != oldPreValues.Count) return false;
+            if (ReferenceEquals(oldConfig, newConfig) || (oldConfig == null && newConfig == null)) return true;
+            if (oldConfig == null || newConfig == null) return false;
 
-            foreach (var pair in oldPreValues)
+            var oldType = oldConfig.GetType();
+            var newType = newConfig.GetType();
+            if (oldType != newType) return false;
+
+            var props = oldType.GetPublicProperties();
+            foreach (var prop in props)
             {
-                if (!newPreValues.TryGetValue(pair.Key, out var value)) return false;
-                if (string.IsNullOrEmpty(pair.Value?.Value) && string.IsNullOrEmpty(value?.Value)) continue;
-                if (string.IsNullOrEmpty(pair.Value?.Value) || string.IsNullOrEmpty(value?.Value)) return false;
-                if (pair.Value.Id != value.Id || pair.Value.SortOrder != value.SortOrder) return false;
+                var oldVal = prop.GetValue(oldConfig);
+                var newVal = prop.GetValue(newConfig);
+
+                if (ReferenceEquals(oldVal, newVal) || (oldVal == null && newVal == null)) continue;
+                if (oldVal == null || newVal == null || !oldVal.Equals(newVal)) return false;
             }
 
             return true;
-        }
-
-        protected virtual void AppendKeyValues(StringBuilder sb, string key, string value1, string value2)
-        {
-            sb.Append(",    {{");
-            sb.Append(key);
-            sb.Append(":   ");
-            if (value1 != null) sb.Append(value1.Replace("{", "{{").Replace("}", "}}").Replace("\r", " ").Replace("\n", " "));
-            sb.Append("   -->   ");
-            if (value2 != null) sb.Append(value2.Replace("{", "{{").Replace("}", "}}").Replace("\r", " ").Replace("\n", " "));
-            sb.Append("}}");
         }
 
         protected virtual IEnumerable<IContentTransformMapper> FindMappings(IEnumerable<IContentTypeBase> cts, ContentBaseType sourceType, IDictionary<int, IPropertyMigration> dataTypes)
@@ -270,7 +261,7 @@ namespace Our.Umbraco.Migration
 
                 foreach (var property in ct.PropertyTypes)
                 {
-                    if (!dataTypes.TryGetValue(property.DataTypeDefinitionId, out var migrations)) continue;
+                    if (!dataTypes.TryGetValue(property.DataTypeId, out var migrations)) continue;
 
                     mappings.Add(new FieldMapper(property.Alias, sourceType + " Picker", new[] {migrations}));
                 }
@@ -279,12 +270,12 @@ namespace Our.Umbraco.Migration
 
                 if (!headerShown)
                 {
-                    LogHelper.Info<IdToUdiMigration>($"Updating properties for the following {sourceType} types");
+                    Logger.Info<IdToUdiMigration>($"Updating properties for the following {sourceType} types");
                     headerShown = true;
                 }
 
                 var fields = string.Join(", ", mappings.Select(m => m.FieldName));
-                LogHelper.Info<IdToUdiMigration>($"    {ct.Name} ({ct.Alias} - #{ct.Id}), in properties {fields}");
+                Logger.Info<IdToUdiMigration>($"    {ct.Name} ({ct.Alias} - #{ct.Id}), in properties {fields}");
                 yield return new ContentTransformMapper(new ContentsByTypeSource(sourceType, ct.Alias), mappings);
             }
         }
@@ -292,7 +283,7 @@ namespace Our.Umbraco.Migration
         protected class DataTypeMigrations
         {
             public IDataTypeMigrator Migrator { get; set; }
-            public List<Tuple<IDataTypeDefinition, IDictionary<string, PreValue>>> DataTypes { get; set; }
+            public List<(IDataType type, object config)> DataTypes { get; set; }
         }
     }
 }

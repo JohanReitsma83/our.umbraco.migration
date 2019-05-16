@@ -2,10 +2,10 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using Umbraco.Core;
+using Umbraco.Core.Composing;
 using Umbraco.Core.Logging;
+using Umbraco.Core.Migrations;
 using Umbraco.Core.Models;
-using Umbraco.Core.Persistence.Migrations;
 using Umbraco.Core.Persistence.SqlSyntax;
 using Umbraco.Core.Services;
 
@@ -23,9 +23,8 @@ namespace Our.Umbraco.Migration
         /// Creates a new FieldTransformMigration instance
         /// </summary>
         /// <param name="mappings">All content base mappings that should be performed</param>
-        /// <param name="sqlSyntax"></param>
-        /// <param name="logger"></param>
-        protected FieldTransformMigration(IEnumerable<IContentTransformMapper> mappings, ISqlSyntaxProvider sqlSyntax, ILogger logger) : base(sqlSyntax, logger)
+        /// <param name="context"></param>
+        protected FieldTransformMigration(IEnumerable<IContentTransformMapper> mappings, IMigrationContext context) : base(context)
         {
             _mappings = new List<IContentTransformMapper>(mappings);
             _hasMappings = true;
@@ -34,23 +33,16 @@ namespace Our.Umbraco.Migration
         /// <summary>
         /// Creates a new FieldTransformMigration instance, delaying the loading of mappings until later with a LoadMappings overload
         /// </summary>
-        /// <param name="sqlSyntax"></param>
-        /// <param name="logger"></param>
-        protected FieldTransformMigration(ISqlSyntaxProvider sqlSyntax, ILogger logger) : base(sqlSyntax, logger)
+        /// <param name="context"></param>
+        protected FieldTransformMigration(IMigrationContext context) : base(context)
         {
             _mappings = new List<IContentTransformMapper>();
         }
 
-        public override void Up()
+        public override void Migrate()
         {
             EnsureMappings();
             Transform(true);
-        }
-
-        public override void Down()
-        {
-            EnsureMappings();
-            Transform(false);
         }
 
         private void EnsureMappings()
@@ -83,7 +75,7 @@ namespace Our.Umbraco.Migration
 
             try
             {
-                var ctx = ApplicationContext.Current.Services;
+                var ctx = Current.Services;
 
                 foreach (var mapping in _mappings)
                 {

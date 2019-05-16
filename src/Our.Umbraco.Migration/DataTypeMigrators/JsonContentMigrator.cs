@@ -4,8 +4,11 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using Newtonsoft.Json;
 using Umbraco.Core;
+using Umbraco.Core.Composing;
 using Umbraco.Core.Models;
+using Umbraco.Core.Models.Entities;
 using Umbraco.Core.Services;
+using Umbraco.Web.PropertyEditors;
 
 namespace Our.Umbraco.Migration.DataTypeMigrators
 {
@@ -15,23 +18,23 @@ namespace Our.Umbraco.Migration.DataTypeMigrators
         // ReSharper disable once StaticMemberInGenericType
         private static readonly Dictionary<string, IPropertyMigration> KnownValidMigrators = new Dictionary<string, IPropertyMigration>(StringComparer.InvariantCultureIgnoreCase);
 
-        public virtual bool NeedsMigration(IDataTypeDefinition dataType, IDictionary<string, PreValue> oldPreValues)
+        public virtual bool NeedsMigration(IDataType dataType, object oldConfig)
         {
-            var transforms = GetJsonPropertyTransforms(dataType, oldPreValues, false);
+            var transforms = GetJsonPropertyTransforms(dataType, oldConfig, false);
             return transforms != null && transforms.Any();
         }
 
-        public virtual DataTypeDatabaseType GetNewDatabaseType(IDataTypeDefinition dataType, IDictionary<string, PreValue> oldPreValues) => dataType.DatabaseType;
-        public virtual IDictionary<string, PreValue> GetNewPreValues(IDataTypeDefinition dataType, IDictionary<string, PreValue> oldPreValues) => oldPreValues;
-        public virtual string GetNewPropertyEditorAlias(IDataTypeDefinition dataType, IDictionary<string, PreValue> oldPreValues) => dataType.PropertyEditorAlias;
+        public virtual ValueStorageType GetNewDatabaseType(IDataType dataType, object oldConfig) => dataType.DatabaseType;
+        public virtual object GetNewConfiguration(IDataType dataType, object oldConfig) => oldConfig;
+        public virtual string GetNewEditorAlias(IDataType dataType, object oldConfig) => dataType.EditorAlias;
 
-        public virtual IPropertyMigration GetPropertyMigration(IDataTypeDefinition dataType, IDictionary<string, PreValue> oldPreValues, bool retainInvalidData)
+        public virtual IPropertyMigration GetPropertyMigration(IDataType dataType, object oldConfig, bool retainInvalidData)
         {
-            var transforms = GetJsonPropertyTransforms(dataType, oldPreValues, retainInvalidData)?.ToList();
+            var transforms = GetJsonPropertyTransforms(dataType, oldConfig, retainInvalidData)?.ToList();
             return transforms != null && transforms.Count > 0 ? new JsonMigration<T>(transforms) : null;
         }
 
-        protected abstract IEnumerable<IJsonPropertyTransform<T>> GetJsonPropertyTransforms(IDataTypeDefinition dataType, IDictionary<string, PreValue> oldPreValues, bool retainInvalidData);
+        protected abstract IEnumerable<IJsonPropertyTransform<T>> GetJsonPropertyTransforms(IDataType dataType, object oldConfig, bool retainInvalidData);
 
         protected virtual IPropertyMigration GetValidPropertyMigration(string dataTypeGuid, bool retainInvalidData)
         {
@@ -40,14 +43,14 @@ namespace Our.Umbraco.Migration.DataTypeMigrators
 
             if (!Guid.TryParse(dataTypeGuid, out var guid)) return KnownValidMigrators[dataTypeGuid] = null;
 
-            var dts = ApplicationContext.Current.Services.DataTypeService;
-            var dt = dts.GetDataTypeDefinitionById(guid);
+            var dts = Current.Services.DataTypeService;
+            var dt = dts.GetDataType(guid);
             if (dt == null) return KnownValidMigrators[dataTypeGuid] = null;
 
-            var pv = dts.GetPreValuesCollectionByDataTypeId(dt.Id)?.FormatAsDictionary();
-            var migrator = DataTypeMigratorFactory.Instance.CreateDataTypeMigrator(dt.PropertyEditorAlias);
+            var pv = dt.ConfigurationAs<MultiNodePickerConfiguration>();
+            var migrator = DataTypeMigratorFactory.Instance.CreateDataTypeMigrator(dt.EditorAlias);
 
-            if (migrator != null && !migrator.NeedsMigration(dt, pv ?? new Dictionary<string, PreValue>())) return KnownValidMigrators[dataTypeGuid] = null;
+            if (migrator != null && !migrator.NeedsMigration(dt, pv)) return KnownValidMigrators[dataTypeGuid] = null;
 
             return KnownValidMigrators[dataTypeGuid] = migrator?.GetPropertyMigration(dt, pv, retainInvalidData);
         }
@@ -212,11 +215,76 @@ namespace Our.Umbraco.Migration.DataTypeMigrators
             {
             }
 
+            public void SetCultureName(string value, string culture)
+            {
+                throw new NotImplementedException();
+            }
+
+            public string GetCultureName(string culture)
+            {
+                throw new NotImplementedException();
+            }
+
+            public bool IsCultureAvailable(string culture)
+            {
+                throw new NotImplementedException();
+            }
+
+            public DateTime? GetUpdateDate(string culture)
+            {
+                throw new NotImplementedException();
+            }
+
+            public object GetValue(string propertyTypeAlias, string culture = null, string segment = null, bool published = false)
+            {
+                throw new NotImplementedException();
+            }
+
+            public TValue GetValue<TValue>(string propertyTypeAlias, string culture = null, string segment = null, bool published = false)
+            {
+                throw new NotImplementedException();
+            }
+
+            public void SetValue(string propertyTypeAlias, object value, string culture = null, string segment = null)
+            {
+                throw new NotImplementedException();
+            }
+
+            public void SetParent(ITreeEntity parent)
+            {
+                throw new NotImplementedException();
+            }
+
+            public void ResetWereDirtyProperties()
+            {
+                throw new NotImplementedException();
+            }
+
+            public IEnumerable<string> GetWereDirtyProperties()
+            {
+                throw new NotImplementedException();
+            }
+
+            public IEnumerable<string> GetDirtyProperties()
+            {
+                throw new NotImplementedException();
+            }
+
             public int ContentTypeId { get; }
             public Guid Version { get; }
             public PropertyCollection Properties { get; set; }
             public IEnumerable<PropertyGroup> PropertyGroups { get; }
             public IEnumerable<PropertyType> PropertyTypes { get; }
+
+            public ISimpleContentType ContentType => throw new NotImplementedException();
+
+            public int WriterId { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
+            public int VersionId { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
+            public ContentCultureInfosCollection CultureInfos { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
+
+            public IEnumerable<string> AvailableCultures => throw new NotImplementedException();
+
+            public DateTime? DeleteDate { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
         }
     }
 

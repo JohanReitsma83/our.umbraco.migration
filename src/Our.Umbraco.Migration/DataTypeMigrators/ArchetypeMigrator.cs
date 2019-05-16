@@ -9,11 +9,10 @@ namespace Our.Umbraco.Migration.DataTypeMigrators
     [DataTypeMigrator("Imulus.Archetype")]
     public class ArchetypeMigrator : JsonContentMigrator<JObject>
     {
-        protected override IEnumerable<IJsonPropertyTransform<JObject>> GetJsonPropertyTransforms(IDataTypeDefinition dataType, IDictionary<string, PreValue> oldPreValues, bool retainInvalidData)
+        protected override IEnumerable<IJsonPropertyTransform<JObject>> GetJsonPropertyTransforms(IDataType dataType, object oldConfig, bool retainInvalidData)
         {
-            if (oldPreValues == null || !oldPreValues.TryGetValue("archetypeConfig", out var cfgPreVal) || string.IsNullOrWhiteSpace(cfgPreVal?.Value)) yield break;
+            if (oldConfig == null || !(oldConfig is JObject config)) yield break;
 
-            var config = JsonConvert.DeserializeObject<JObject>(cfgPreVal.Value);
             var fieldsets = config?["fieldsets"];
             if (fieldsets == null) yield break;
 

@@ -2,10 +2,14 @@
 using System.Collections.Generic;
 using System.Configuration;
 using System.Linq;
-using Umbraco.Core;
+using Umbraco.Core; 
+using Umbraco.Core.Composing;
 using Umbraco.Core.Logging;
+using Umbraco.Core.Migrations;
+using Umbraco.Core.Migrations.Upgrade;
 using Umbraco.Core.Models;
 using Umbraco.Core.Persistence;
+using Umbraco.Core.Scoping;
 using Umbraco.Core.Services;
 
 /* Copyright 2018 ProWorks, Inc.
@@ -18,41 +22,55 @@ using Umbraco.Core.Services;
  */
 namespace Our.Umbraco.Migration
 {
-    public class MigrationStartupHandler : ApplicationEventHandler
+    [RuntimeLevel(MinLevel = RuntimeLevel.Upgrade)]
+    // ReSharper disable once UnusedMember.Global
+    public class MigrationStartupComposer : IUserComposer
     {
-        protected override void ApplicationStarted(UmbracoApplicationBase umbracoApplication, ApplicationContext applicationContext)
+        public void Compose(Composition composition)
         {
-            ApplyNeededMigrations(applicationContext);
+            composition.Components().Append<MigrationStartupComponent>(); 
+        }
+    }
+    public class MigrationStartupComponent : IComponent
+    {
+        private IFactory Container { get; }
+        private IScopeProvider ScopeProvider { get; }
+        private IMigrationBuilder MigrationBuilder { get; }
+        private IKeyValueService KeyValueService { get; }
+        private ILogger Logger { get; }
+        private IUmbracoDatabase Database { get; }
+
+        public MigrationStartupComponent(IFactory container, IScopeProvider scopeProvider, IMigrationBuilder migrationBuilder, IKeyValueService keyValueService, ILogger logger, IUmbracoDatabase database)
+        {
+            Container = container;
+            ScopeProvider = scopeProvider;
+            MigrationBuilder = migrationBuilder;
+            KeyValueService = keyValueService;
+            Logger = logger;
+            Database = database;
         }
 
-        private static void ApplyNeededMigrations(ApplicationContext applicationContext)
+        public void Terminate(){}
+        public void Initialize()
         {
-            var logger = applicationContext.ProfilingLogger.Logger;
-            var resolvers = GetRegisteredResolvers(logger);
+            var resolvers = GetRegisteredResolvers();
             if (resolvers == null || !resolvers.Any()) return;
 
-            var runners = new List<MigrationRunnerDetail>();
+            var upgraders = new List<Upgrader>();
             foreach (var resolver in resolvers)
             {
-                var applied = DetermineAppliedMigrations(resolver, logger);
-                if (applied.Count == 0) continue;
+                var initialStates = GetInitialStates(resolver);
+                if (initialStates.Count == 0) continue;
 
-                AddMigrationRunners(resolver, applied, runners, logger);
+                AddUpgraders(resolver, initialStates, upgraders);
             }
 
-            if (runners.Count <= 0) return;
+            if (upgraders.Count <= 0) return;
 
-            var ctx = new MigrationContext
-            {
-                MigrationEntryService = applicationContext.Services.MigrationEntryService,
-                Logger = logger,
-                Database = applicationContext.DatabaseContext.Database
-            };
-
-            ExecuteMigrationRunners(runners, ctx);
+            ExecuteMigrationRunners(upgraders);
         }
 
-        private static List<IMigrationResolver> GetRegisteredResolvers(ILogger logger)
+        private List<IMigrationResolver> GetRegisteredResolvers()
         {
             var resolvers = new List<IMigrationResolver>();
             MigrationResolverSection section = null;
@@ -63,7 +81,7 @@ namespace Our.Umbraco.Migration
             }
             catch (Exception e)
             {
-                LogHelper.Error<MigrationStartupHandler>("Could not read the resolvers section", e);
+                Logger.Error<MigrationStartupComponent>("Could not read the resolvers section", e);
             }
             if (section?.Resolvers == null) return resolvers;
 
@@ -74,21 +92,25 @@ namespace Our.Umbraco.Migration
                 {
                     var type = Type.GetType(resolver.Type, false);
                     if (type == null)
-                        LogHelper.Warn<MigrationStartupHandler>($"The type '{resolver.Type}' for migration resolver '{resolver.Name}' could not be found");
-                    else if (!interfaceType.IsAssignableFrom(type) || !(Activator.CreateInstance(type) is IMigrationResolver instance))
-                        LogHelper.Warn<MigrationStartupHandler>($"The type '{type.FullName}' for migration resolver '{resolver.Name}' does not implement IMigrationResolver");
-                    else AddResolver(resolvers, resolver, instance, logger);
+                        Logger.Warn<MigrationStartupComponent>($"The type '{resolver.Type}' for migration resolver '{resolver.Name}' could not be found");
+                    else if (!interfaceType.IsAssignableFrom(type))
+                        Logger.Warn<MigrationStartupComponent>($"The type '{type.FullName}' for migration resolver '{resolver.Name}' does not implement IMigrationResolver");
+                    else 
+                    {
+                        var inst = Container.CreateInstance(type);
+                        if (inst is IMigrationResolver instance) AddResolver(resolvers, resolver, instance);
+                    }
                 }
                 catch (Exception e)
                 {
-                    LogHelper.Error<MigrationStartupHandler>($"Could not instantiate the migration resolver '{resolver.Name}'", e);
+                    Logger.Error<MigrationStartupComponent>($"Could not instantiate the migration resolver '{resolver.Name}'", e);
                 }
             }
 
             return resolvers;
         }
 
-        private static void AddResolver(ICollection<IMigrationResolver> resolvers, ResolverElement resolver, IMigrationResolver instance, ILogger logger)
+        private void AddResolver(ICollection<IMigrationResolver> resolvers, ResolverElement resolver, IMigrationResolver instance)
         {
             try
             {
@@ -98,98 +120,76 @@ namespace Our.Umbraco.Migration
                     settings[setting.Key] = setting.Value;
                 }
 
-                instance.Initialize(logger, settings);
+                instance.Initialize(settings);
                 resolvers.Add(instance);
             }
             catch (Exception e)
             {
-                LogHelper.Error<MigrationStartupHandler>($"Could not initiate the migration resolver '{resolver.Name}' with settings from the config file", e);
+                Logger.Error<MigrationStartupComponent>($"Could not initiate the migration resolver '{resolver.Name}' with settings from the config file", e);
             }
         }
 
-        private static Dictionary<string, IEnumerable<IMigrationEntry>> DetermineAppliedMigrations(IMigrationResolver resolver, ILogger logger)
+        private Dictionary<string, string> GetInitialStates(IMigrationResolver resolver)
         {
-            var applied = new Dictionary<string, IEnumerable<IMigrationEntry>>();
+            var initialStates = new Dictionary<string, string>();
             IEnumerable<string> names = null;
 
             try
             {
-                names = resolver.GetProductNames(logger);
+                names = resolver.GetProductNames();
             }
             catch (Exception e)
             {
-                LogHelper.Error<MigrationStartupHandler>($"Could not determine the migration source names for the resolver '{resolver.GetType().FullName}'", e);
+                Logger.Error<MigrationStartupComponent>($"Could not determine the migration source names for the resolver '{resolver.GetType().FullName}'", e);
             }
-            if (names == null) return applied;
+            if (names == null) return initialStates; 
+
+            var versions = Database.Fetch<MigrationEntry>().ToLookup(e => e.MigrationName);
 
             foreach (var name in names)
             {
                 try
                 {
-                    applied[name] = ApplicationContext.Current.Services.MigrationEntryService.GetAll(name);
+                    var init = versions[name].OrderByDescending(e => e.Version).Select(e => e.Version.ToString()).FirstOrDefault() ?? "0";
+                    initialStates[name] = init;
                 }
                 catch (Exception e)
                 {
-                    LogHelper.Error<MigrationStartupHandler>($"Could not determine the applied migrations for '{name}' from the resolver '{resolver.GetType().FullName}'", e);
+                    Logger.Error<MigrationStartupComponent>($"Could not determine the applied migrations for '{name}' from the resolver '{resolver.GetType().FullName}'", e);
                 }
             }
 
-            return applied;
+            return initialStates;
         }
 
-        private static void AddMigrationRunners(IMigrationResolver resolver, IReadOnlyDictionary<string, IEnumerable<IMigrationEntry>> applied, List<MigrationRunnerDetail> runners, ILogger logger)
+        private void AddUpgraders(IMigrationResolver resolver, IReadOnlyDictionary<string, string> initialStates, List<Upgrader> upgraders)
         {
             try
             {
-                var rnrs = resolver.GetMigrationRunners(logger, applied);
-                runners.AddRange(rnrs);
+                var upg = resolver.GetUpgraders(initialStates);
+                upgraders.AddRange(upg);
             }
             catch (Exception e)
             {
-                LogHelper.Error<MigrationStartupHandler>($"Could not determine the migration runners for the resolver '{resolver.GetType().FullName}'", e);
+                Logger.Error<MigrationStartupComponent>($"Could not determine the migration runners for the resolver '{resolver.GetType().FullName}'", e);
             }
         }
 
-        private static void ExecuteMigrationRunners(IEnumerable<MigrationRunnerDetail> runners, MigrationContext context)
+        private void ExecuteMigrationRunners(IEnumerable<Upgrader> upgraders)
         {
-            foreach (var detail in runners)
+            foreach (var upgrader in upgraders)
             {
                 try
                 {
-                    var runner = detail?.CreateRunner(context.MigrationEntryService, context.Logger);
-                    if (runner == null)
-                    {
-                        LogHelper.Warn<MigrationStartupHandler>($"No runner was returned for {detail?.ProductName} between version {detail?.CurrentVersion} and {detail?.TargetVersion}");
-                    }
-                    else
-                    {
-                        LogHelper.Info<MigrationStartupHandler>($"Executing migration for {detail.ProductName} from {detail.CurrentVersion} to {detail.TargetVersion}");
-                        var opened = false;
-                        try
-                        {
-                            context.Database.OpenSharedConnection();
-                            opened = true;
-                            runner.Execute(context.Database);
-                            LogHelper.Info<MigrationStartupHandler>($"Completed migration of {detail.ProductName} from {detail.CurrentVersion} to {detail.TargetVersion}");
-                        }
-                        finally
-                        {
-                            if (opened) context.Database.CloseSharedConnection();
-                        }
-                    }
+                    Logger.Info<MigrationStartupComponent>($"Executing migration for {upgrader.Plan.Name} from {upgrader.Plan.InitialState} to {upgrader.Plan.FinalState}");
+                    upgrader.Execute(ScopeProvider, MigrationBuilder, KeyValueService, Logger);
+                    Logger.Info<MigrationStartupComponent>($"Completed migration of {upgrader.Plan.Name} from {upgrader.Plan.InitialState} to {upgrader.Plan.FinalState}");
                 }
                 catch (Exception e)
                 {
-                    LogHelper.Error<MigrationStartupHandler>($"Could not execute the migration of {detail?.ProductName} from {detail?.CurrentVersion} to {detail?.TargetVersion}", e);
+                    Logger.Error<MigrationStartupComponent>($"Could not execute the migration of {upgrader.Plan.Name} from {upgrader.Plan.InitialState} to {upgrader.Plan.FinalState}", e);
                 }
             }
-        }
-
-        private class MigrationContext
-        {
-            public IMigrationEntryService MigrationEntryService { get; set; }
-            public ILogger Logger { get; set; }
-            public UmbracoDatabase Database { get; set; }
         }
     }
 }

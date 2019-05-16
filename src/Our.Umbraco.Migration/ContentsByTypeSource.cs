@@ -1,8 +1,9 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using Umbraco.Core.Logging;
 using Umbraco.Core.Models;
-using Umbraco.Core.Models.EntityBase;
+using Umbraco.Core.Models.Entities;
 using Umbraco.Core.Services;
 using ArgumentOutOfRangeException = System.ArgumentOutOfRangeException;
 
@@ -30,19 +31,19 @@ namespace Our.Umbraco.Migration
                 switch (SourceType)
                 {
                     case ContentBaseType.Document:
-                        var ctype = ctx.ContentTypeService.GetContentType(SourceName);
+                        var ctype = ctx.ContentTypeService.Get(SourceName);
                         if (ctype != null)
                         {
-                            var allTypeIds = GetIdAndDescendentIds(ctype, ctx.ContentTypeService.GetAllContentTypes());
-                            return allTypeIds.SelectMany(id => ctx.ContentService.GetContentOfContentType(id));
+                            var allTypeIds = GetIdAndDescendentIds(ctype, ctx.ContentTypeService.GetAll());
+                            return GetContentOfType(allTypeIds, (ids, page, size) => { var r = ctx.ContentService.GetPagedOfTypes(ids, page, size, out var total, null); return (total, r); });
                         }
                         break;
                     case ContentBaseType.Media:
-                        var mtype = ctx.ContentTypeService.GetMediaType(SourceName);
+                        var mtype = ctx.ContentTypeService.Get(SourceName);
                         if (mtype != null)
                         {
-                            var allTypeIds = GetIdAndDescendentIds(mtype, ctx.ContentTypeService.GetAllMediaTypes());
-                            return allTypeIds.SelectMany(id => ctx.MediaService.GetMediaOfMediaType(id));
+                            var allTypeIds = GetIdAndDescendentIds(mtype, ctx.MediaTypeService.GetAll());
+                            return GetContentOfType(allTypeIds, (ids, page, size) => { var r = ctx.MediaService.GetPagedOfTypes(ids, page, size, out var total, null); return (total, r); });
                         }
                         break;
                     case ContentBaseType.Member:
@@ -59,6 +60,25 @@ namespace Our.Umbraco.Migration
 
             logger.Warn<ContentsByTypeSource>($"Could not find {SourceType} type with alias {SourceName}");
             return new IContentBase[0];
+        }
+
+        private static IEnumerable<IContentBase> GetContentOfType(IEnumerable<int> ids, Func<int[], long, int, (long, IEnumerable<IContentBase>)> getPagedOfTypes)
+        {
+            long total;
+            var idx = 0;
+            var arr = ids.ToArray();
+
+            do
+            {
+                var results = getPagedOfTypes(arr, idx / 100, 100);
+                total = results.Item1;
+                foreach (var result in results.Item2)
+                {
+                    idx++;
+                    yield return result;
+                }
+            }
+            while (idx < total);
         }
 
         private static Dictionary<int, HashSet<int>> GetRelationships(IEnumerable<IContentTypeComposition> allCompositions)

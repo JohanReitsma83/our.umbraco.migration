@@ -7,8 +7,8 @@ namespace Our.Umbraco.Migration
     public interface IDataTypeMigratorFactory
     {
         void RegisterDataTypeMigrators(Assembly assembly);
-        void RegisterDataTypeMigrator(string propertyEditorAlias, Func<IDataTypeMigrator> constructor);
-        IDataTypeMigrator CreateDataTypeMigrator(string propertyEditorAlias);
+        void RegisterDataTypeMigrator(string EditorAlias, Func<IDataTypeMigrator> constructor);
+        IDataTypeMigrator CreateDataTypeMigrator(string EditorAlias);
     }
 
     public static class DataTypeMigratorFactory
@@ -44,7 +44,7 @@ namespace Our.Umbraco.Migration
                     }
                     else
                     {
-                        aliases = attr.PropertyEditorAliases;
+                        aliases = attr.EditorAliases;
                     }
 
                     var constructor = type.GetConstructor(new Type[0]);
@@ -57,15 +57,15 @@ namespace Our.Umbraco.Migration
                 }
             }
 
-            public void RegisterDataTypeMigrator(string propertyEditorAlias, Func<IDataTypeMigrator> constructor)
+            public void RegisterDataTypeMigrator(string EditorAlias, Func<IDataTypeMigrator> constructor)
             {
-                _constructors[propertyEditorAlias] = constructor;
+                _constructors[EditorAlias] = constructor;
             }
 
-            public IDataTypeMigrator CreateDataTypeMigrator(string propertyEditorAlias)
+            public IDataTypeMigrator CreateDataTypeMigrator(string EditorAlias)
             {
-                if (!_knownMigrations.TryGetValue(propertyEditorAlias, out var migrator))
-                    _knownMigrations[propertyEditorAlias] = migrator = !_constructors.TryGetValue(propertyEditorAlias, out var constructor) ? null : constructor?.Invoke();
+                if (!_knownMigrations.TryGetValue(EditorAlias, out var migrator))
+                    _knownMigrations[EditorAlias] = migrator = !_constructors.TryGetValue(EditorAlias, out var constructor) ? null : constructor?.Invoke();
 
                 return migrator;
             }

@@ -9,10 +9,10 @@ namespace Our.Umbraco.Migration.DataTypeMigrators
     {
         private static readonly Regex MediaTypePattern = new Regex("\"type\"\\s*:\\s*\"media\"", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
-        public override string GetNewPropertyEditorAlias(IDataTypeDefinition dataType, IDictionary<string, PreValue> oldPreValues) => "Umbraco.MultiNodeTreePicker2";
+        public override string GetNewEditorAlias(IDataType dataType, object oldConfig) => "Umbraco.MultiNodeTreePicker2";
 
-        public override ContentBaseType GetNewPropertyContentBaseType(IDataTypeDefinition dataType, IDictionary<string, PreValue> oldPreValues) =>
-            oldPreValues != null && oldPreValues.TryGetValue("startNode", out var value) && value.Value != null && MediaTypePattern.IsMatch(value.Value)
+        public override ContentBaseType GetNewPropertyContentBaseType(IDataType dataType, object oldConfig) =>
+            oldConfig != null && oldConfig.TryGetValue("startNode", out var value) && value.Value != null && MediaTypePattern.IsMatch(value.Value)
             ? ContentBaseType.Media
             : ContentBaseType.Document;
     }

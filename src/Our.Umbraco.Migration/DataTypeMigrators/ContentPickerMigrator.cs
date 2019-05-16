@@ -6,7 +6,7 @@ namespace Our.Umbraco.Migration.DataTypeMigrators
     [DataTypeMigrator("Umbraco.ContentPickerAlias")]
     public class ContentPickerMigrator : IdToUdiMigrator
     {
-        public override string GetNewPropertyEditorAlias(IDataTypeDefinition dataType, IDictionary<string, PreValue> oldPreValues) => "Umbraco.ContentPicker2";
-        public override ContentBaseType GetNewPropertyContentBaseType(IDataTypeDefinition dataType, IDictionary<string, PreValue> oldPreValues) => ContentBaseType.Document;
+        public override string GetNewEditorAlias(IDataType dataType, object oldConfig) => "Umbraco.ContentPicker2";
+        public override ContentBaseType GetNewPropertyContentBaseType(IDataType dataType, object oldConfig) => ContentBaseType.Document;
     }
 }

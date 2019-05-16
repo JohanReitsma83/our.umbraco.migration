@@ -7,6 +7,7 @@ using Newtonsoft.Json.Linq;
 using Our.Umbraco.Migration.GridAliasMigrators;
 using Umbraco.Core;
 using Umbraco.Core.Models;
+using Umbraco.Web.PropertyEditors;
 
 namespace Our.Umbraco.Migration.DataTypeMigrators
 {
@@ -15,11 +16,11 @@ namespace Our.Umbraco.Migration.DataTypeMigrators
     {
         private static List<string> _allAliases;
 
-        protected override IEnumerable<IJsonPropertyTransform<JObject>> GetJsonPropertyTransforms(IDataTypeDefinition dataType, IDictionary<string, PreValue> oldPreValues, bool retainInvalidData)
+        protected override IEnumerable<IJsonPropertyTransform<JObject>> GetJsonPropertyTransforms(IDataType dataType, object oldConfig, bool retainInvalidData)
         {
-            if (oldPreValues == null || !oldPreValues.TryGetValue("items", out var cfgPreVal) || string.IsNullOrWhiteSpace(cfgPreVal?.Value)) yield break;
+            if (!(oldConfig is GridConfiguration oldC) || oldC.Items == null) yield break;
 
-            var config = JsonConvert.DeserializeObject<JObject>(cfgPreVal.Value);
+            var config = oldC.Items;
             var layouts = config?["layouts"];
             if (layouts == null) yield break;
 

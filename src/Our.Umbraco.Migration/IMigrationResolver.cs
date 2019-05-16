@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using Umbraco.Core.Logging;
+using Umbraco.Core.Migrations.Upgrade;
 using Umbraco.Core.Models;
 
 /* Copyright 2018 ProWorks, Inc.
@@ -20,23 +21,20 @@ namespace Our.Umbraco.Migration
         /// <summary>
         /// Initializes the resolver with configuration values specified in the web.config file.
         /// </summary>
-        /// <param name="logger">The logger to use</param>
         /// <param name="configuration">The key/value pairs specified in the web.config file</param>
-        void Initialize(ILogger logger, IReadOnlyDictionary<string, string> configuration);
+        void Initialize(IReadOnlyDictionary<string, string> configuration);
 
         /// <summary>
         /// Lists the names of the products that this resolver is able to apply.  This should NOT include "Umbraco", as that is reserved by the Umbraco core.
         /// </summary>
-        /// <param name="logger">The logger to use</param>
         /// <returns>The product names</returns>
-        IEnumerable<string> GetProductNames(ILogger logger);
+        IEnumerable<string> GetProductNames();
 
         /// <summary>
-        /// Determines which migrations need to be applied, given the migrations of each currently applied in the database.  Migration runners will be executed in the order returned.
+        /// Determines which migrations need to be applied, given the migrations of each currently applied in the database.  Returns a upgraders which will execute any migrations that need to be run.
         /// </summary>
-        /// <param name="logger">The logger to use</param>
-        /// <param name="appliedMigrations">Specifies the migrations which have been applied for each product</param>
-        /// <returns>All migration runners for all products that are needed to upgrade the database from the current version to the latest, in the order they should be applied</returns>
-        IEnumerable<MigrationRunnerDetail> GetMigrationRunners(ILogger logger, IReadOnlyDictionary<string, IEnumerable<IMigrationEntry>> appliedMigrations);
+        /// <param name="initialStates">Specifies the initial migration state for each product, usually the version number of the last migration</param>
+        /// <returns>The upgraders to execute</returns>
+        IEnumerable<Upgrader> GetUpgraders(IReadOnlyDictionary<string, string> initialStates);
     }
 }

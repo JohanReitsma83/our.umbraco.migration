@@ -5,13 +5,13 @@ namespace Our.Umbraco.Migration.DataTypeMigrators
 {
     public abstract class IdToUdiMigrator : IDataTypeMigrator
     {
-        public abstract string GetNewPropertyEditorAlias(IDataTypeDefinition dataType, IDictionary<string, PreValue> oldPreValues);
-        public abstract ContentBaseType GetNewPropertyContentBaseType(IDataTypeDefinition dataType, IDictionary<string, PreValue> oldPreValues);
+        public abstract string GetNewEditorAlias(IDataType dataType, object oldConfig);
+        public abstract ContentBaseType GetNewPropertyContentBaseType(IDataType dataType, object oldConfig);
 
-        public virtual bool NeedsMigration(IDataTypeDefinition dataType, IDictionary<string, PreValue> oldPreValues) => true;
-        public virtual DataTypeDatabaseType GetNewDatabaseType(IDataTypeDefinition dataType, IDictionary<string, PreValue> oldPreValues) => DataTypeDatabaseType.Ntext;
-        public virtual IDictionary<string, PreValue> GetNewPreValues(IDataTypeDefinition dataType, IDictionary<string, PreValue> oldPreValues) => oldPreValues;
-        public virtual IPropertyMigration GetPropertyMigration(IDataTypeDefinition dataType, IDictionary<string, PreValue> oldPreValues, bool retainInvalidData) =>
-            new PropertyMigration(new IdToUdiTransform(GetNewPropertyContentBaseType(dataType, oldPreValues), retainInvalidData), new UdiToIdTransform());
+        public virtual bool NeedsMigration(IDataType dataType, object oldConfig) => true;
+        public virtual ValueStorageType GetNewDatabaseType(IDataType dataType, object oldConfig) => ValueStorageType.Ntext;
+        public virtual object GetNewConfiguration(IDataType dataType, object oldConfig) => oldConfig;
+        public virtual IPropertyMigration GetPropertyMigration(IDataType dataType, object oldConfig, bool retainInvalidData) =>
+            new PropertyMigration(new IdToUdiTransform(GetNewPropertyContentBaseType(dataType, oldConfig), retainInvalidData), new UdiToIdTransform());
     }
 }

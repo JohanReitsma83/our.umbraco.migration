@@ -1,12 +1,11 @@
-﻿using System.Collections.Generic;
-using Umbraco.Core.Models;
+﻿using Umbraco.Core.Models;
 
 namespace Our.Umbraco.Migration.DataTypeMigrators
 {
     [DataTypeMigrator("Umbraco.MemberPicker")]
     public class MemberPickerMigrator : IdToUdiMigrator
     {
-        public override string GetNewPropertyEditorAlias(IDataTypeDefinition dataType, IDictionary<string, PreValue> oldPreValues) => "Umbraco.MemberPicker2";
-        public override ContentBaseType GetNewPropertyContentBaseType(IDataTypeDefinition dataType, IDictionary<string, PreValue> oldPreValues) => ContentBaseType.Member;
+        public override string GetNewEditorAlias(IDataType dataType, object oldConfig) => "Umbraco.MemberPicker2";
+        public override ContentBaseType GetNewPropertyContentBaseType(IDataType dataType, object oldConfig) => ContentBaseType.Member;
     }
 }

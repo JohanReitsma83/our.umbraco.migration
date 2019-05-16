@@ -19,9 +19,11 @@ Umbraco Migrations is available for installation through NuGet:
 
 This project is licensed under the [MIT license](https://opensource.org/licenses/MIT).
 
-## [See Full Documentation](https://bitbucket.org/proworks/Our.Umbraco.Migration/src/master/Documentation/)
-Docs on implementing `Our.Umbraco.Migration` base migration classes, `IMigrationResolver`, and other features.
-See the [Migration.Demo](https://bitbucket.org/proworks/migration.demo) repository for further examples.
+## Full Documentation
+
+Docs on implementing [base migration classes](https://bitbucket.org/proworks/Our.Umbraco.Migration/src/master/Documentation/BaseMigrations/), [IMigrationResolver](https://bitbucket.org/proworks/Our.Umbraco.Migration/src/master/Documentation/MigrationResolvers/), and [other features](https://bitbucket.org/proworks/Our.Umbraco.Migration/src/master/Documentation/).
+
+See the [Migration.Demo](https://bitbucket.org/proworks/migration.demo) repository for hands-on examples.
 
 ## Getting Started
 
