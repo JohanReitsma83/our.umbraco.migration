@@ -9,16 +9,16 @@ namespace Our.Umbraco.Migration
 {
     public class IdToUdiTransform : IPropertyTransform
     {
-        private static readonly Dictionary<ContentBaseType, Dictionary<int, string>> KnownIds = new Dictionary<ContentBaseType, Dictionary<int, string>>();
+        private static readonly Dictionary<ContentBaseType, Dictionary<int, (string, IContentBase)>> KnownIds = new Dictionary<ContentBaseType, Dictionary<int, (string, IContentBase)>>();
 
-        private readonly Dictionary<int, string> _knownIds;
+        private readonly Dictionary<int, (string, IContentBase)> _knownIds;
         private readonly string _typeName;
 
         public IdToUdiTransform(ContentBaseType type, bool retainInvalidData)
         {
             Type = type;
             _typeName = type.ToString().ToLowerInvariant();
-            _knownIds = !KnownIds.TryGetValue(type, out var val) ? KnownIds[type] = new Dictionary<int, string>() : val;
+            _knownIds = !KnownIds.TryGetValue(type, out var val) ? KnownIds[type] = new Dictionary<int, (string, IContentBase)>() : val;
             RetainInvalidData = retainInvalidData;
         }
 
@@ -50,17 +50,27 @@ namespace Our.Umbraco.Migration
             return newIds;
         }
 
-        private string MapToUdi(ServiceContext ctx, string idOrUdi)
+        private string MapToUdi(ServiceContext ctx, string idOrUdi) => MapToUdi(ctx, idOrUdi, Type, RetainInvalidData, out _, _typeName, _knownIds);
+
+        internal static string MapToUdi(ServiceContext ctx, string idOrUdi, ContentBaseType type, bool retainInvalidData, out IContentBase node, string typeName = null, Dictionary<int, (string udi, IContentBase node)> knownIds = null)
         {
+            node = null;
+            if (typeName == null) typeName = type.ToString().ToLowerInvariant();
+            if (knownIds == null) knownIds = !KnownIds.TryGetValue(type, out var val) ? KnownIds[type] = new Dictionary<int, (string, IContentBase)>() : val;
+
             if (!int.TryParse(idOrUdi, out var id))
             {
                 if (Udi.TryParse(idOrUdi, out _)) return idOrUdi;
-                return RetainInvalidData ? idOrUdi : null;
+                return retainInvalidData ? idOrUdi : null;
             }
-            if (_knownIds.TryGetValue(id, out var udi)) return udi;
+            if (knownIds.TryGetValue(id, out var element))
+            {
+                node = element.node;
+                return element.udi;
+            }
 
-            IContentBase node = null;
-            switch (Type)
+            element = (null, null);
+            switch (type)
             {
                 case ContentBaseType.Document:
                     node = ctx.ContentService.GetById(id);
@@ -74,11 +84,11 @@ namespace Our.Umbraco.Migration
             }
 
             var guid = node?.Key.ToString("N");
-            if (guid != null) udi = $"umb://{_typeName}/{guid}";
+            if (guid != null) element = ($"umb://{typeName}/{guid}", node);
 
-            _knownIds[id] = udi;
+            knownIds[id] = element;
 
-            return udi;
+            return element.udi;
         }
     }
 }
