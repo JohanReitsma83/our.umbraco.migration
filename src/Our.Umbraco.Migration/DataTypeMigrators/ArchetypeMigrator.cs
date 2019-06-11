@@ -40,7 +40,7 @@ namespace Our.Umbraco.Migration.DataTypeMigrators
             }
         }
 
-        public static IEnumerable<Tuple<string, Action<JObject, string>>> GetValuesAndSetters(JObject token, string alias)
+        public static IEnumerable<(string, Action<JObject, string>)> GetValuesAndSetters(JObject token, string alias)
         {
             var fieldSets = token?["fieldsets"];
             if (fieldSets == null) yield break;
@@ -63,7 +63,7 @@ namespace Our.Umbraco.Migration.DataTypeMigrators
 
                     var f = fIdx;
                     var p = pIdx;
-                    yield return new Tuple<string, Action<JObject, string>>(
+                    yield return (
                         property["value"]?.ToString(),
                         (o, value) => PropertySetter(o, f, p, value)
                         );

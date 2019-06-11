@@ -14,14 +14,16 @@ namespace Our.Umbraco.Migration
         {
         }
 
-        public ContentsByTypeSource(ContentBaseType type, string alias)
+        public ContentsByTypeSource(ContentBaseType type, string alias, bool recurse = true)
         {
             SourceType = type;
             SourceName = alias;
+            Recurse = recurse;
         }
 
         public string SourceName { get; }
         public ContentBaseType SourceType { get; }
+        public bool Recurse { get; }
 
         public IEnumerable<IContentBase> GetContents(ILogger logger, ServiceContext ctx)
         {
@@ -33,7 +35,7 @@ namespace Our.Umbraco.Migration
                         var ctype = ctx.ContentTypeService.GetContentType(SourceName);
                         if (ctype != null)
                         {
-                            var allTypeIds = GetIdAndDescendentIds(ctype, ctx.ContentTypeService.GetAllContentTypes());
+                            var allTypeIds = Recurse ? GetIdAndDescendentIds(ctype, ctx.ContentTypeService.GetAllContentTypes()) : new[] { ctype.Id };
                             return allTypeIds.SelectMany(id => ctx.ContentService.GetContentOfContentType(id));
                         }
                         break;
@@ -41,7 +43,7 @@ namespace Our.Umbraco.Migration
                         var mtype = ctx.ContentTypeService.GetMediaType(SourceName);
                         if (mtype != null)
                         {
-                            var allTypeIds = GetIdAndDescendentIds(mtype, ctx.ContentTypeService.GetAllMediaTypes());
+                            var allTypeIds = Recurse ? GetIdAndDescendentIds(mtype, ctx.ContentTypeService.GetAllMediaTypes()) : new[] { mtype.Id };
                             return allTypeIds.SelectMany(id => ctx.MediaService.GetMediaOfMediaType(id));
                         }
                         break;

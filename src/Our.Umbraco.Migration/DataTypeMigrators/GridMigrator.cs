@@ -6,6 +6,8 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Our.Umbraco.Migration.GridAliasMigrators;
 using Umbraco.Core;
+using Umbraco.Core.Configuration;
+using Umbraco.Core.IO;
 using Umbraco.Core.Models;
 
 namespace Our.Umbraco.Migration.DataTypeMigrators
@@ -71,44 +73,63 @@ namespace Our.Umbraco.Migration.DataTypeMigrators
 
         protected virtual List<string> GetAllAliasesAndRegisterGenericMigrators(bool retainInvalidData)
         {
+            var config = UmbracoConfig.For.GridConfig(ApplicationContext.Current.ProfilingLogger.Logger,
+                ApplicationContext.Current.ApplicationCache.RuntimeCache,
+                new System.IO.DirectoryInfo(HttpContext.Current.Server.MapPath(SystemDirectories.AppPlugins)),
+                new System.IO.DirectoryInfo(HttpContext.Current.Server.MapPath(SystemDirectories.Config)),
+                HttpContext.Current == null || HttpContext.Current.IsDebuggingEnabled);
             var aliases = new List<string>();
-            var editorPath = HttpContext.Current.Server.MapPath("~/config/grid.editors.config.js");
-            if (!System.IO.File.Exists(editorPath)) return aliases;
-
-            var editorText = System.IO.File.ReadAllText(editorPath);
-            var editors = JsonConvert.DeserializeObject<JArray>(editorText);
+            var editors = config.EditorsConfig.Editors;
 
             foreach (var editor in editors)
             {
-                var alias = editor?["alias"]?.ToString();
+                if (editor?.Config == null) continue;
+
+                var alias = editor.Alias;
                 if (!string.IsNullOrWhiteSpace(alias)) aliases.Add(alias);
 
-                if (!(editor?["config"]?["editors"] is JArray subEditors)) continue;
-
-                var propertyMigrations = new Dictionary<string, IPropertyMigration>();
-                foreach (var subEditor in subEditors)
+                if (editor.Config.TryGetValue("editors", out var val) && val is JArray subEditors)
                 {
-                    var id = subEditor?["dataType"]?.ToString();
-                    var al = subEditor?["alias"]?.ToString();
-                    if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(al)) continue;
-
-                    var migration = GetValidPropertyMigration(id, retainInvalidData);
-                    if (migration != null) propertyMigrations[al] = migration;
+                    RegisterPropertyMigrations(alias, retainInvalidData, subEditors.Select(s => (s?["dataType"]?.ToString(), s?["alias"]?.ToString())), p => new GenericEditorMigrator { PropertyMigrations = p });
                 }
+                if (editor.Config.TryGetValue("allowedDocTypes", out val) && val is JArray docTypes)
+                {
+                    foreach (var docType in docTypes)
+                    {
+                        var docTypeAlias = (docType as JValue)?.Value as string;
+                        if (string.IsNullOrWhiteSpace(docTypeAlias)) continue;
 
-                if (propertyMigrations.Count == 0) continue;
+                        var ct = ApplicationContext.Current.Services.ContentTypeService.GetContentType(docTypeAlias);
+                        if (ct == null) continue;
 
-                GridAliasMigratorFactory.Instance.RegisterGridAliasMigrator(alias, new GenericEditorMigrator {PropertyMigrations = propertyMigrations}, false);
+                        RegisterPropertyMigrations(alias, retainInvalidData, ct.PropertyTypes.Select(p => (p.DataTypeDefinitionId.ToString(), p.Alias)), p => new DocTypeMigrator { PropertyMigrations = p });
+                    }
+                }
             }
 
             return aliases;
+        }
+
+        protected virtual void RegisterPropertyMigrations(string alias, bool retainInvalidData, IEnumerable<(string DataTypeGuid, string PropertyAlias)> properties, Func<Dictionary<string, IPropertyMigration>, IGridAliasMigrator> migratorConstructor)
+        {
+            var propertyMigrations = new Dictionary<string, IPropertyMigration>();
+
+            foreach ((string id, string al) in properties)
+            {
+                if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(al)) continue;
+
+                var migration = GetValidPropertyMigration(id, retainInvalidData);
+                if (migration != null) propertyMigrations[al] = migration;
+            }
+
+            if (propertyMigrations.Count > 0) GridAliasMigratorFactory.Instance.RegisterGridAliasMigrator(alias, migratorConstructor(propertyMigrations), false);
         }
 
         protected class GridPropertyTransform : IJsonPropertyTransform<JObject>
         {
             public Dictionary<string, IGridAliasMigrator> Migrators { get; set; }
 
-            public IEnumerable<Tuple<string, IPropertyMigration, Action<JObject, string>>> GetPropertyValuesMigrationsAndSetters(JObject token)
+            public IEnumerable<(string, IPropertyMigration, Action<JObject, string>)> GetPropertyValuesMigrationsAndSetters(JObject token)
             {
                 var sections = token?["sections"];
                 if (sections == null) yield break;
@@ -161,9 +182,9 @@ namespace Our.Umbraco.Migration.DataTypeMigrators
                                         var a = aIdx;
                                         var c = cIdx;
 
-                                        yield return new Tuple<string, IPropertyMigration, Action<JObject, string>>(valueMigrationAndSetting.Item1,
-                                            valueMigrationAndSetting.Item2,
-                                            (o, val) => PropertySetter(o, s, r, a, c, val, valueMigrationAndSetting.Item3));
+                                        yield return (valueMigrationAndSetting.PropertyValue,
+                                            valueMigrationAndSetting.Migration,
+                                            (o, val) => PropertySetter(o, s, r, a, c, val, valueMigrationAndSetting.SetPropertyValue));
                                     }
                                 }
                             }

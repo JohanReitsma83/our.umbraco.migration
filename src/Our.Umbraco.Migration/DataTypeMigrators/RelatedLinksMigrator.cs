@@ -24,12 +24,12 @@ namespace Our.Umbraco.Migration.DataTypeMigrators
             };
         }
 
-        public static IEnumerable<Tuple<string, Action<JArray, string>>> GetValuesAndSetters(JArray token)
+        public static IEnumerable<(string, Action<JArray, string>)> GetValuesAndSetters(JArray token)
         {
             for (var i = 0; i < token.Count; i++)
             {
                 var idx = i;
-                yield return new Tuple<string, Action<JArray, string>>(
+                yield return (
                     token[i].ToString(),
                     (o, value) => PropertySetter(o, idx, value)
                     );

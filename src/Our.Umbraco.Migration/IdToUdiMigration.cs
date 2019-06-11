@@ -16,11 +16,12 @@ namespace Our.Umbraco.Migration
     /// </summary>
     public abstract class IdToUdiMigration : FieldTransformMigration
     {
-        private static ContentTransformMapper CreateIdToUdiMapper(ContentBaseType sourceType, string contentTypeAlias, IReadOnlyDictionary<string, ContentBaseType> fieldTypes, bool retainInvalidData)
+        private static ContentTransformMapper CreateIdToUdiMapper(ContentBaseType sourceType, string contentTypeAlias, IReadOnlyDictionary<string, ContentBaseType> fieldTypes, bool retainInvalidData, bool raiseSaveAndPublishEvents)
         {
             return new ContentTransformMapper(
                 new ContentsByTypeSource(sourceType, contentTypeAlias),
-                fieldTypes.Select(p => new FieldMapper(p.Key, sourceType + " Picker", new[] { new PropertyMigration(new IdToUdiTransform(p.Value, retainInvalidData), new UdiToIdTransform()) })));
+                fieldTypes.Select(p => new FieldMapper(p.Key, sourceType + " Picker", new[] { new PropertyMigration(new IdToUdiTransform(p.Value, retainInvalidData), new UdiToIdTransform()) })),
+                raiseSaveAndPublishEvents);
         }
         private readonly List<string> _includedDataTypes;
         private readonly List<string> _excludedDataTypes;
@@ -33,8 +34,8 @@ namespace Our.Umbraco.Migration
         /// <param name="sqlSyntax"></param>
         /// <param name="logger"></param>
         /// <param name="retainInvalidData">If data is found that isn't a valid UDI or a valid ID of the right content type, should we keep that data, or remove it</param>
-        protected IdToUdiMigration(IDictionary<string, IReadOnlyDictionary<string, ContentBaseType>> contentTypeFieldMappings, ISqlSyntaxProvider sqlSyntax, ILogger logger, bool retainInvalidData = false)
-            : base(contentTypeFieldMappings.Select(p => CreateIdToUdiMapper(ContentBaseType.Document, p.Key, p.Value, retainInvalidData)), sqlSyntax, logger)
+        protected IdToUdiMigration(IDictionary<string, IReadOnlyDictionary<string, ContentBaseType>> contentTypeFieldMappings, ISqlSyntaxProvider sqlSyntax, ILogger logger, bool retainInvalidData = false, bool raiseSaveAndPublishEvents = true)
+            : base(contentTypeFieldMappings.Select(p => CreateIdToUdiMapper(ContentBaseType.Document, p.Key, p.Value, retainInvalidData, raiseSaveAndPublishEvents)), sqlSyntax, logger)
         {
         }
 
@@ -56,6 +57,7 @@ namespace Our.Umbraco.Migration
         }
 
         protected virtual bool RetainInvalidData { get; }
+        protected virtual bool RaiseSaveAndPublishEvents => true;
 
         /// <inheritdoc />
         /// <summary>
@@ -262,13 +264,31 @@ namespace Our.Umbraco.Migration
 
         protected virtual IEnumerable<IContentTransformMapper> FindMappings(IEnumerable<IContentTypeBase> cts, ContentBaseType sourceType, IDictionary<int, IPropertyMigration> dataTypes)
         {
+            var db = ApplicationContext.Current.DatabaseContext.Database;
             var headerShown = false;
+            var directlyUsed = new List<IContentTypeBase>();
+            var typeProperties = new Dictionary<int, (int DataTypeDefinitionId, string Alias)[]>();
+            var mappers = new List<ContentTransformMapper>();
+            var relations = db.Fetch<ContentType2ContentType>("SELECT ParentContentTypeId, ChildContentTypeId FROM cmsContentType2ContentType");
+            var usedTypes = db.Fetch<ContentTypeRow>("SELECT DISTINCT contentType FROM cmsContent").Select(c => c.ContentType).ToList();
 
             foreach (var ct in cts)
             {
+                typeProperties[ct.Id] = ct.PropertyTypes.Select(p => (p.DataTypeDefinitionId, p.Alias)).ToArray();
+                relations.Add(new ContentType2ContentType { ChildContentTypeId = ct.Id, ParentContentTypeId = ct.ParentId });
+                if (usedTypes.Contains(ct.Id)) directlyUsed.Add(ct);
+            }
+
+            var relatedIds = relations.ToLookup(r => r.ChildContentTypeId, r => r.ParentContentTypeId);
+            foreach (var ct in directlyUsed)
+            {
+                var allTypeIds = new List<int>();
+                AddRelatedTypes(ct.Id, allTypeIds, relatedIds);
+
+                var allProperties = allTypeIds.SelectMany(id => typeProperties[id]).Distinct().ToList();
                 var mappings = new List<IFieldMapper>();
 
-                foreach (var property in ct.PropertyTypes)
+                foreach (var property in allProperties)
                 {
                     if (!dataTypes.TryGetValue(property.DataTypeDefinitionId, out var migrations)) continue;
 
@@ -285,14 +305,36 @@ namespace Our.Umbraco.Migration
 
                 var fields = string.Join(", ", mappings.Select(m => m.FieldName));
                 LogHelper.Info<IdToUdiMigration>($"    {ct.Name} ({ct.Alias} - #{ct.Id}), in properties {fields}");
-                yield return new ContentTransformMapper(new ContentsByTypeSource(sourceType, ct.Alias), mappings);
+                mappers.Add(new ContentTransformMapper(new ContentsByTypeSource(sourceType, ct.Alias, false), mappings, RaiseSaveAndPublishEvents));
             }
+
+            return mappers;
+        }
+
+        private void AddRelatedTypes(int typeId, List<int> allTypeIds, ILookup<int, int> relatedIds)
+        {
+            if (typeId <= 0 || allTypeIds.Contains(typeId)) return;
+
+            allTypeIds.Add(typeId);
+
+            foreach (var id in relatedIds[typeId]) AddRelatedTypes(id, allTypeIds, relatedIds);
         }
 
         protected class DataTypeMigrations
         {
             public IDataTypeMigrator Migrator { get; set; }
             public List<Tuple<IDataTypeDefinition, IDictionary<string, PreValue>>> DataTypes { get; set; }
+        }
+
+        private class ContentType2ContentType
+        {
+            public int ChildContentTypeId { get; set; }
+            public int ParentContentTypeId { get; set; }
+        }
+
+        private class ContentTypeRow
+        {
+            public int ContentType { get; set; }
         }
     }
 }
