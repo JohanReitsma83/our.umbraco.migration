@@ -285,7 +285,7 @@ namespace Our.Umbraco.Migration
                 var allTypeIds = new List<int>();
                 AddRelatedTypes(ct.Id, allTypeIds, relatedIds);
 
-                var allProperties = allTypeIds.SelectMany(id => typeProperties[id]).Distinct().ToList();
+                var allProperties = allTypeIds.SelectMany(id => typeProperties.TryGetValue(id, out var pair) ? pair : new (int DataTypeDefinitionId, string Alias)[0]).Distinct().ToList();
                 var mappings = new List<IFieldMapper>();
 
                 foreach (var property in allProperties)
