@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Configuration;
 using System.Linq;
+using System.Reflection;
 using Umbraco.Core;
 using Umbraco.Core.Logging;
 using Umbraco.Core.Models;
@@ -115,6 +116,17 @@ namespace Our.Umbraco.Migration
             try
             {
                 names = resolver.GetProductNames(logger);
+            }
+            catch (ReflectionTypeLoadException r)
+            {
+                LogHelper.Error<MigrationStartupHandler>($"Could not determine the migration source names for the resolver '{resolver.GetType().FullName}'", r);
+                if (r.LoaderExceptions != null)
+                {
+                    foreach (var ex in r.LoaderExceptions)
+                    {
+                        LogHelper.Error<MigrationStartupHandler>($"Loader exception", ex);
+                    }
+                }
             }
             catch (Exception e)
             {
