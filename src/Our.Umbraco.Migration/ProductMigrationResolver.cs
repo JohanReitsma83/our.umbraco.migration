@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using Semver;
 using Umbraco.Core.Logging;
 using Umbraco.Core.Models;
@@ -34,7 +35,8 @@ namespace Our.Umbraco.Migration
                 var classType = typeof(IMigration);
                 var attributeType = typeof(MigrationAttribute);
                 var migrations = AppDomain.CurrentDomain.GetAssemblies()
-                    .SelectMany(a => a.GetTypes()).Where(t => classType.IsAssignableFrom(t))
+                    .SelectMany(a =>
+                    { try { return a.GetTypes(); } catch { return new Type[0]; } }).Where(t => classType.IsAssignableFrom(t))
                     .Select(t => t.GetCustomAttributes(attributeType, false) as MigrationAttribute[])
                     .Where(c => c != null && c.Length > 0)
                     .SelectMany(c => c
@@ -51,6 +53,29 @@ namespace Our.Umbraco.Migration
             }
 
             return MigrationDetails;
+        }
+
+        private IEnumerable<Type> GetAssemblyTypes(Assembly a)
+        {
+            try
+            {
+                return a.GetTypes();
+            }
+            catch (ReflectionTypeLoadException e)
+            {
+                if (e.LoaderExceptions != null)
+                {
+                    foreach (var ex in e.LoaderExceptions)
+                    {
+                        if (ex != null) LogHelper.Debug<MigrationStartupHandler>($"Loader exception - " + ex);
+                    }
+                }
+                return e.Types.Where(t => t != null);
+            }
+            catch
+            {
+                return new Type[0];
+            }
         }
 
         public void Initialize(ILogger logger, IReadOnlyDictionary<string, string> settings)

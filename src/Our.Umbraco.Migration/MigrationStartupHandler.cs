@@ -124,7 +124,7 @@ namespace Our.Umbraco.Migration
                 {
                     foreach (var ex in r.LoaderExceptions)
                     {
-                        LogHelper.Error<MigrationStartupHandler>($"Loader exception", ex);
+                        if (ex != null) LogHelper.Error<MigrationStartupHandler>($"Loader exception", ex);
                     }
                 }
             }
