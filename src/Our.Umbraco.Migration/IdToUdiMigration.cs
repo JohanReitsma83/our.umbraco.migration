@@ -48,16 +48,17 @@ namespace Our.Umbraco.Migration
         /// <param name="retainInvalidData">If data is found that isn't a valid UDI or a valid ID of the right content type, should we keep that data, or remove it</param>
         /// <param name="includedDataTypes">The list of data types to include in the migration.  If specified, only these data types, and their related content, will be migrated.  By default includes all data types</param>
         /// <param name="excludedDataTypes">The list of data types to exclude from the migration.  If specified, only these data types, and their related content, will be migrated.  By default no data types are excluded</param>
-        protected IdToUdiMigration(ISqlSyntaxProvider sqlSyntax, ILogger logger, bool retainInvalidData = false, IEnumerable<string> includedDataTypes = null, IEnumerable<string> excludedDataTypes = null)
+        protected IdToUdiMigration(ISqlSyntaxProvider sqlSyntax, ILogger logger, bool retainInvalidData = false, IEnumerable<string> includedDataTypes = null, IEnumerable<string> excludedDataTypes = null, bool raiseSaveAndPublishEvents = true)
             : base(sqlSyntax, logger)
         {
             if (includedDataTypes != null) _includedDataTypes = new List<string>(includedDataTypes);
             if (excludedDataTypes != null) _excludedDataTypes = new List<string>(excludedDataTypes);
             RetainInvalidData = retainInvalidData;
+            RaiseSaveAndPublishEvents = raiseSaveAndPublishEvents;
         }
 
         protected virtual bool RetainInvalidData { get; }
-        protected virtual bool RaiseSaveAndPublishEvents => true;
+        protected virtual bool RaiseSaveAndPublishEvents { get; }
 
         /// <inheritdoc />
         /// <summary>
