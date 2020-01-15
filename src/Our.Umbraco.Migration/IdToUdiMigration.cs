@@ -41,6 +41,19 @@ namespace Our.Umbraco.Migration
 
         /// <inheritdoc />
         /// <summary>
+        /// Initializes a new migration instance.  Use this overload if you want to explicitly specify the content types and field names to migrate.
+        /// </summary>
+        /// <param name="contentTypeBaseFieldMappings">This dictionary has as its key the content type bases, and the value dictionary for each has as its key the content type aliases to be mapped within that content type base.  Each one is then mapped to a list of fields that should be migrated from an integer to a UDI for that content type.  The field values can be single integers, or a comma-separated list of integers</param>
+        /// <param name="sqlSyntax"></param>
+        /// <param name="logger"></param>
+        /// <param name="retainInvalidData">If data is found that isn't a valid UDI or a valid ID of the right content type, should we keep that data, or remove it</param>
+        protected IdToUdiMigration(IReadOnlyDictionary<ContentBaseType, IReadOnlyDictionary<string, IReadOnlyDictionary<string, ContentBaseType>>> contentTypeBaseFieldMappings, ISqlSyntaxProvider sqlSyntax, ILogger logger, bool retainInvalidData = false, bool raiseSaveAndPublishEvents = true)
+            : base(contentTypeBaseFieldMappings.SelectMany(b => b.Value.Select(p => CreateIdToUdiMapper(b.Key, p.Key, p.Value, retainInvalidData, raiseSaveAndPublishEvents))), sqlSyntax, logger)
+        {
+        }
+
+        /// <inheritdoc />
+        /// <summary>
         /// Initializes a new migration instance.  Use this overload if you want the migration to determine which data types need to be migrated and automatically convert data types and migrate content.
         /// </summary>
         /// <param name="sqlSyntax"></param>
