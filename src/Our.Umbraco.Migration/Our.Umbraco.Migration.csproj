@@ -256,6 +256,8 @@
     <Compile Include="IdToUdiTransform.cs" />
     <Compile Include="IdToUdiMigration.cs" />
     <Compile Include="DataTypeMigrators\IdToUdiMigrator.cs" />
+    <Compile Include="ManualMigrationTriggerController.cs" />
+    <Compile Include="MigrationApplier.cs" />
     <Compile Include="PropertyMigration.cs" />
     <Compile Include="ProductMigrationResolver.cs" />
     <Compile Include="IMigrationResolver.cs" />
