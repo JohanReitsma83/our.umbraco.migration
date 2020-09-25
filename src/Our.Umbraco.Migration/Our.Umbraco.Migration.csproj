@@ -237,6 +237,8 @@
     <Compile Include="DataTypeMigrators\GridMigrator.cs" />
     <Compile Include="DataTypeMigrators\JsonContentMigrator.cs" />
     <Compile Include="DataTypeMigrators\RelatedLinksMigrator.cs" />
+    <Compile Include="DataTypeMigrators\RJPMultiUrlPickerMigrator.cs" />
+    <Compile Include="DefaultIdToUdiMigration.cs" />
     <Compile Include="GridAliasMigrators\DocTypeMigrator.cs" />
     <Compile Include="GridAliasMigrators\GenericEditorMigrator.cs" />
     <Compile Include="GridAliasMigrators\GridAliasMigratorFactory.cs" />
