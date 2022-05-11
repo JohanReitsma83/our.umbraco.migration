@@ -3,6 +3,7 @@ using System.Linq;
 using Umbraco.Core;
 using Umbraco.Core.Logging;
 using Umbraco.Core.Persistence;
+using Umbraco.Core.Persistence.DatabaseAnnotations;
 using Umbraco.Core.Persistence.Migrations;
 using Umbraco.Core.Persistence.SqlSyntax;
 
@@ -52,9 +53,11 @@ namespace Our.Umbraco.Migration.v8Prep
             public bool BlogPostUmbracoId { get; set; }
 
             [Column("keepAllVersionsNewerThanDays")]
+            [NullSetting(NullSetting = NullSettings.Null)]
             public int? KeepAllVersionsNewerThanDays { get; set; }
 
             [Column("keepLatestVersionPerDayForDays")]
+            [NullSetting(NullSetting = NullSettings.Null)]
             public int? KeepLatestVersionPerDayForDays { get; set; }
 
             [Column("updated")]
