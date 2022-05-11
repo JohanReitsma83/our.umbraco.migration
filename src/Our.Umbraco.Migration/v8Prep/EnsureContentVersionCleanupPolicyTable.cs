@@ -29,11 +29,11 @@ namespace Our.Umbraco.Migration.v8Prep
             }
 
             Create.Table<UmbracoContentVersionCleanupPolicy>();
-            Create.ForeignKey()
-                .FromTable("umbracoContentVersionCleanupPolicy")
-                .ForeignColumn("contentTypeId")
-                .ToTable("cmsContentType")
-                .PrimaryColumn("nodeId");
+            //Create.ForeignKey()
+            //    .FromTable("umbracoContentVersionCleanupPolicy")
+            //    .ForeignColumn("contentTypeId")
+            //    .ToTable("cmsContentType")
+            //    .PrimaryColumn("nodeId");
         }
 
         public override void Down()
