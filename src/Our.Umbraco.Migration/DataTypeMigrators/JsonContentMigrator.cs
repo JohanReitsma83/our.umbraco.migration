@@ -89,8 +89,21 @@ namespace Our.Umbraco.Migration.DataTypeMigrators
             var val = from is string v ? v : from?.ToString();
             if (string.IsNullOrWhiteSpace(val)) return from;
 
-            var token = JsonConvert.DeserializeObject<T>(val);
             var changed = false;
+            //var token = JsonConvert.DeserializeObject<T>(val);
+            T token;
+            try
+            {
+                token = JsonConvert.DeserializeObject<T>(val);
+            }
+            catch
+            {
+                // NOTE: there were cases where the picker would have data like: "content,false,,," and it wouldn't deserialize.  However, this caused problems later to leave it like this
+
+                // So now we return an empty array by invoking an empty object
+                token = Activator.CreateInstance<T>();
+                changed = true;
+            }
 
             Transforms.ForEach(t =>
             {
