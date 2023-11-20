@@ -26,7 +26,7 @@ namespace Our.Umbraco.Migration
         public object RetrievePreChangeState(ServiceContext ctx, IContentBase content)
         {
             if (!(content is IContent c)) return false;
-            var isPublished = c.Published && !c.DeletedDate.HasValue && (!c.ExpireDate.HasValue || c.ExpireDate.Value > DateTime.Now);
+            var isPublished = (c.HasPublishedVersion || c.Published) && !c.DeletedDate.HasValue && (!c.ExpireDate.HasValue || c.ExpireDate.Value > DateTime.Now);
             return isPublished;
         }
 

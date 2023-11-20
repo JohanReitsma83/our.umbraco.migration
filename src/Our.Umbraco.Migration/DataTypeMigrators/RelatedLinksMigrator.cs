@@ -50,7 +50,7 @@ namespace Our.Umbraco.Migration.DataTypeMigrators
             public IPropertyTransform Downgrader => throw new NotImplementedException();
         }
 
-        private class RelatedLinkTransform : IPropertyTransform
+        public class RelatedLinkTransform : IPropertyTransform
         {
             public object Map(ServiceContext ctx, object from)
             {

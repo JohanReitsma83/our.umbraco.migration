@@ -47,7 +47,7 @@ namespace Our.Umbraco.Migration.DataTypeMigrators
             public IPropertyTransform Downgrader => throw new NotImplementedException();
         }
 
-        private class RJPMultiUrlPickerTransform : IPropertyTransform
+        public class RJPMultiUrlPickerTransform : IPropertyTransform
         {
             public object Map(ServiceContext ctx, object from)
             {
