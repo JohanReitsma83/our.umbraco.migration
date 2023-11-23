@@ -113,7 +113,8 @@ namespace Our.Umbraco.Migration.DataTypeMigrators
                 {
                     if (dto.Count > 1)
                     {
-                        return $"[{string.Join(",", dto.Select(d => d.Key))}]";
+                        var stringArray = $"[{string.Join(",", dto.Select(d => $"\"{d.Key}\""))}]";
+                        return stringArray;
                     }
 
                     if (dto.Count == 1)
