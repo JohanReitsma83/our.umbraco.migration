@@ -151,9 +151,9 @@ namespace Our.Umbraco.Migration.DataTypeMigrators
                             }
                             else if (IsNuPicker(umbProperty.PropertyEditorAlias))
                             {
-                                //var transform = new NuPickerTransform();
-                               // var newValue = JToken.FromObject(transform.Map(ctx, prop.Value.ToString()));
-                                //clone[prop.Key] = newValue;
+                                var transform = new NuPickerTransform();
+                                var newValue = JToken.FromObject(transform.Map(ctx, prop.Value.ToString()));
+                                clone[prop.Key] = newValue;
                             }
                             else
                             {
@@ -224,7 +224,15 @@ namespace Our.Umbraco.Migration.DataTypeMigrators
 
         private bool IsNuPicker(string type)
         {
-            return type.Contains("NuPicker") || type.Contains("Umbraco.Community.Contentment.DataList");
+            switch (type)
+            {
+                case "nuPickers.EnumDropDownPicker":
+                case "nuPickers.DotNetCheckBoxPicker":
+                case "nuPickers.DotNetDropDownPicker":
+                    return true;
+            }
+
+            return false;
         }
 
         

@@ -15,7 +15,7 @@ namespace Our.Umbraco.Migration.DataTypeMigrators
     /// nuPickers.DotNetDropDownPicker
     /// nuPickers.EnumDropDownPicker
     /// </summary>
-    [DataTypeMigrator("nuPickers.EnumDropDownPicker")]
+    [DataTypeMigrator("AngularGoogleMaps")]
     public class MapsMigrator : IDataTypeMigrator
     {
         public bool NeedsMigration(IDataTypeDefinition dataType, IDictionary<string, PreValue> oldPreValues)
