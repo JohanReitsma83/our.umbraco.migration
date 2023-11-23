@@ -66,40 +66,48 @@ namespace Our.Umbraco.Migration.DataTypeMigrators
 
         public object Map(ServiceContext ctx, object from)
         {
-            if (!string.IsNullOrWhiteSpace(from.ToString()))
+            if (from != null)
             {
-                var coordinates = from.ToString().Split(new[] { "," }, StringSplitOptions.RemoveEmptyEntries);
-                if (coordinates.Length == 3)
+                if (!string.IsNullOrWhiteSpace(from.ToString()))
                 {
-                    var lat = coordinates[0];
-                    var lng = coordinates[1];
-
-                    var mapsDto = new MapsDto()
+                    var coordinates = from.ToString().Split(new[] { "," }, StringSplitOptions.RemoveEmptyEntries);
+                    if (coordinates.Length >= 3)
                     {
-                        Address = new Address()
-                        {
-                            Coordinates = new Coordinates()
-                            {
-                                Lat = lat,
-                                Lng = lng
-                            }
-                        },
-                        Mapconfig = new Mapconfig()
-                        {
-                            CenterCoordinates = new Coordinates()
-                            {
-                                Lng = lng,
-                                Lat = lat
-                            },
-                            Maptype = "roadmap",
-                            Zoom = 17
-                        }
-                    };
+                        var lat = coordinates[0];
+                        var lng = coordinates[1];
 
-                    return MapsDto.ToJson(mapsDto);
+                        if (!(double.TryParse(lat, out var latDb) && double.TryParse(lng, out var lngDb)))
+                        {
+                            var help = from.ToString();
+                        }
+
+                        var mapsDto = new MapsDto()
+                        {
+                            Address = new Address()
+                            {
+                                Coordinates = new Coordinates()
+                                {
+                                    Lat = lat,
+                                    Lng = lng
+                                }
+                            },
+                            Mapconfig = new Mapconfig()
+                            {
+                                CenterCoordinates = new Coordinates()
+                                {
+                                    Lng = lng,
+                                    Lat = lat
+                                },
+                                Maptype = "roadmap",
+                                Zoom = 17
+                            }
+                        };
+
+                        return MapsDto.ToJson(mapsDto);
+                    }
                 }
             }
-            
+
             return from;
         }
 
